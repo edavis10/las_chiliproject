@@ -931,3 +931,7 @@ id:
   label_in_date_range: within period
   field_assigned_to_role: Assignee's role
   label_entered_by: (originally entered by {{who}}).
+  label_user_search: "Search for user:"
+  field_failover_host: Failover Host
+  setting_mail_handler_confirmation_on_failure: Send confirmation email on failed incoming email
+  setting_mail_handler_confirmation_on_success: Send confirmation email on successful incoming email
