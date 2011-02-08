@@ -948,3 +948,9 @@ pl:
   field_failover_host: Failover Host
   setting_mail_handler_confirmation_on_failure: Send confirmation email on failed incoming email
   setting_mail_handler_confirmation_on_success: Send confirmation email on successful incoming email
+  notice_not_authorized_archived_project: The project you're trying to access has been archived.
+  text_mail_handler_confirmation_successful: Your email has been successful added at the following url
+  label_mail_handler_confirmation: "Confirmation of email submission: {{subject}}"
+  label_mail_handler_errors_with_submission: "There were errors with your email submission:"
+  notice_not_authorized_action: You are not authorized to perform this action.
+  label_mail_handler_failure: "Failed email submission: {{subject}}"
