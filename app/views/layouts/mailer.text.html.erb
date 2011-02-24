@@ -25,7 +25,7 @@ hr {
 </style>
 </head>
 <body>
-<%= call_hook(:view_layouts_mailer_html_after_content, self.assigns) %>
+<%= call_hook(:view_layouts_mailer_html_before_content, self.assigns) %>
 <%= yield %>
 <%= call_hook(:view_layouts_mailer_html_after_content, self.assigns) %>
 <hr />
