@@ -41,7 +41,7 @@ class MailHandlerTest < ActiveSupport::TestCase
   
   def setup
     ActionMailer::Base.deliveries.clear
-    Setting.notified_events = Redmine::Notifiable.all.collect(&:name)
+    Setting.notified_events = Redmine::Notifiable.all.keys
     Setting.mail_handler_confirmation_on_success = true
     Setting.mail_handler_confirmation_on_failure = true
   end
@@ -151,6 +151,7 @@ class MailHandlerTest < ActiveSupport::TestCase
   end
   
   def test_add_issue_with_cc
+    ActionMailer::Base.deliveries.clear
     issue = submit_email('ticket_with_cc.eml', :issue => {:project => 'ecookbook'})
     assert issue.is_a?(Issue)
     assert !issue.new_record?
@@ -278,7 +279,7 @@ class MailHandlerTest < ActiveSupport::TestCase
     ActionMailer::Base.deliveries.clear
     journal = submit_email('ticket_reply.eml')
     assert journal.is_a?(Journal)
-    assert_equal 2, ActionMailer::Base.deliveries.size
+    assert_equal 4, ActionMailer::Base.deliveries.size
   end
   
   def test_reply_to_a_message
@@ -370,7 +371,7 @@ class MailHandlerTest < ActiveSupport::TestCase
       assert_equal 1, ActionMailer::Base.deliveries.size
       mail = ActionMailer::Base.deliveries.last
       assert_not_nil mail
-      assert mail.bcc.include?('john.doe@somenet.foo')
+      assert mail.to.include?('john.doe@somenet.foo')
       assert mail.subject.include?('Failed email submission: Ticket by unknown user')
       assert mail.body.include?('You are not authorized to perform this action')
     end
@@ -387,7 +388,7 @@ class MailHandlerTest < ActiveSupport::TestCase
       assert_equal 1, ActionMailer::Base.deliveries.size
       mail = ActionMailer::Base.deliveries.last
       assert_not_nil mail
-      assert mail.bcc.include?('jsmith@somenet.foo')
+      assert mail.to.include?('jsmith@somenet.foo')
       assert mail.subject.include?('Failed email submission: Re: Add ingredients categories')
       assert mail.body.include?('You are not authorized to perform this action')
     end
@@ -402,7 +403,7 @@ class MailHandlerTest < ActiveSupport::TestCase
       assert_equal 1, ActionMailer::Base.deliveries.size
       mail = ActionMailer::Base.deliveries.last
       assert_not_nil mail
-      assert mail.bcc.include?('jsmith@somenet.foo')
+      assert mail.to.include?('jsmith@somenet.foo')
       assert mail.subject.include?('Failed email submission: Ticket created by email with attachment')
       assert mail.body.include?('There were errors with your email submission')
       assert mail.body.include?('Unable to determine target project')
@@ -422,7 +423,7 @@ class MailHandlerTest < ActiveSupport::TestCase
       assert_equal 1, ActionMailer::Base.deliveries.size
       mail = ActionMailer::Base.deliveries.last
       assert_not_nil mail
-      assert mail.bcc.include?('jsmith@somenet.foo')
+      assert mail.to.include?('jsmith@somenet.foo')
       assert mail.subject.include?('Failed email submission: New ticket on a given project')
       assert mail.body.include?('There were errors with your email submission')
       assert mail.body.include?('Required Custom Field0 can\'t be blank')
@@ -445,9 +446,10 @@ class MailHandlerTest < ActiveSupport::TestCase
 
   context "#receive_issue_reply" do
     should "deliver an email confirmation when configured" do
+      ActionMailer::Base.deliveries.clear
       journal = submit_email('ticket_reply.eml')
 
-      assert_equal 2, ActionMailer::Base.deliveries.size
+      assert_equal 4, ActionMailer::Base.deliveries.size
       mail = ActionMailer::Base.deliveries.last
       assert_not_nil mail
       assert mail.subject.include?('[eCookbook]'), "Project name missing"
@@ -462,7 +464,7 @@ class MailHandlerTest < ActiveSupport::TestCase
       ActionMailer::Base.deliveries.clear
       m = submit_email('message_reply.eml')
 
-      assert_equal 2, ActionMailer::Base.deliveries.size
+      assert_equal 4, ActionMailer::Base.deliveries.size
       mail = ActionMailer::Base.deliveries.last
       assert_not_nil mail
       assert mail.subject.include?('[eCookbook]'), "Project name missing"

@@ -26,9 +26,14 @@ class FilesController < ApplicationController
       attachments = Attachment.attach_files(container, params[:attachments])
       render_attachment_warning_if_needed(container)
 
-      if !attachments.empty? && Setting.notified_events.include?('file_added')
-        Mailer.deliver_attachments_added(attachments[:files])
+      if !attachments.empty? && !attachments[:files].blank? && Setting.notified_events.include?('file_added')
+        # TODO: refactor
+        recipients = attachments[:files].first.container.project.notified_users.select {|user| user.allowed_to?(:view_files, container.project)}.collect  {|u| u.mail}
+        recipients.each do |recipient|
+          Mailer.deliver_attachments_added(attachments[:files], recipient)
+        end
       end
+      
       redirect_to :controller => 'files', :action => 'index', :id => @project
       return
     end
