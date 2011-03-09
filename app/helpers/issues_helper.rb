@@ -17,7 +17,8 @@
 
 module IssuesHelper
   include ApplicationHelper
-
+  include ERB::Util
+  
   def issue_list(issues, &block)
     ancestors = []
     issues.each do |issue|
