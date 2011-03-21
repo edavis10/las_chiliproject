@@ -1,5 +1,5 @@
-<%= call_hook(:view_layouts_mailer_plain_before_content, self.assigns) %>
+<%= call_hook(:view_layouts_mailer_plain_before_content, self.assigns.merge({:recipients => @recipients, :subject => @subject})) %>
 <%= yield %>
-<%= call_hook(:view_layouts_mailer_plain_after_content, self.assigns) %>
+<%= call_hook(:view_layouts_mailer_plain_after_content, self.assigns.merge({:recipients => @recipients, :subject => @subject})) %>
 -- 
 <%= Setting.emails_footer %>
