@@ -309,61 +309,11 @@ class User < Principal
     !logged?
   end
   
-  # Return user's roles for project
-  def roles_for_project(project)
-    roles = []
-    # No role on archived projects
-    return roles unless project && project.active?
-    if logged?
-      # Find project membership
-      membership = memberships.detect {|m| m.project_id == project.id}
-      if membership
-        roles = membership.roles
-      else
-        @role_non_member ||= Role.non_member
-        roles << @role_non_member
-      end
-    else
-      @role_anonymous ||= Role.anonymous
-      roles << @role_anonymous
-    end
-    roles
-  end
-  
   # Return true if the user is a member of project
   def member_of?(project)
     !roles_for_project(project).detect {|role| role.member?}.nil?
   end
   
-  # Return true if the user is allowed to do the specified action on project
-  # action can be:
-  # * a parameter-like Hash (eg. :controller => 'projects', :action => 'edit')
-  # * a permission Symbol (eg. :edit_project)
-  def allowed_to?(action, project, options={})
-    if project
-      # No action allowed on archived projects
-      return false unless project.active?
-      # No action allowed on disabled modules
-      return false unless project.allows_to?(action)
-      # Admin users are authorized for anything else
-      return true if admin?
-      
-      roles = roles_for_project(project)
-      return false unless roles
-      roles.detect {|role| (project.is_public? || role.member?) && role.allowed_to?(action)}
-      
-    elsif options[:global]
-      # Admin users are always authorized
-      return true if admin?
-      
-      # authorize if user has at least one role that has this permission
-      roles = memberships.collect {|m| m.roles}.flatten.uniq
-      roles.detect {|r| r.allowed_to?(action)} || (self.logged? ? Role.non_member.allowed_to?(action) : Role.anonymous.allowed_to?(action))
-    else
-      false
-    end
-  end
-
   # Utility method to help check if a user should be notified about an
   # event.
   #
