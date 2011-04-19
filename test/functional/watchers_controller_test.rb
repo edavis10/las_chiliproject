@@ -223,7 +223,21 @@ class WatchersControllerTest < ActionController::TestCase
       assert_response :forbidden
     end
     assert !Message.find(@message.id).watched_by?(User.find(2))
+  end
+  
+  context "POST :new" do
+    should "add groups" do
+      @group = Group.generate!.reload
+      Member.generate!(:project => Project.find(1), :roles => [Role.find(1)], :principal => @group)
 
+      @request.session[:user_id] = 2
+      assert_difference('Watcher.count') do
+        xhr :post, :new, :object_type => 'issue', :object_id => '2', :user_ids => [@group.id.to_s]
+        assert_response :success
+        assert_select_rjs :replace_html, 'watchers'
+      end
+      assert Issue.find(2).watched_by?(@group)
+    end
   end
 
   def test_remove_watcher
@@ -345,4 +359,23 @@ class WatchersControllerTest < ActionController::TestCase
     end
     assert Message.find(@message.id).watched_by?(User.find(2))
   end
+
+  context "POST :destroy" do
+    should "remove a group" do
+      @group = Group.generate!.reload
+      Member.generate!(:project => Project.find(1), :roles => [Role.find(1)], :principal => @group)
+      assert Issue.find(2).add_watcher(@group)
+      assert Issue.find(2).watched_by?(@group)
+
+      @request.session[:user_id] = 2
+      assert_difference('Watcher.count', -1) do
+        xhr :post, :destroy, :object_type => 'issue', :object_id => '2', :user_id => @group.id.to_s
+        assert_response :success
+        assert_select_rjs :replace_html, 'watchers'
+      end
+      assert !Issue.find(2).watched_by?(@group)
+    end
+    
+  end
+  
 end
