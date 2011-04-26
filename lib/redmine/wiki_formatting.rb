@@ -50,7 +50,8 @@ module Redmine
           formatter_for(format).new(text).to_html
         end
         if block_given?
-          execute_macros(text, block)
+          # TODO: disable macros
+          # execute_macros(text, block)
         end
         text
       end
