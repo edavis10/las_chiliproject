@@ -82,6 +82,10 @@ class Project < ActiveRecord::Base
   named_scope :all_public, { :conditions => { :is_public => true } }
   named_scope :visible, lambda { { :conditions => Project.visible_by(User.current) } }
 
+  def to_liquid
+    ProjectDrop.new(self)
+  end
+
   def initialize(attributes = nil)
     super
 
