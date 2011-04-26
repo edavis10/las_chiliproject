@@ -6,6 +6,7 @@ gem "coderay", "~> 0.9.7"
 gem "i18n", "~> 0.4.2"
 gem "rubytree", "~> 0.5.2", :require => 'tree'
 gem "rdoc", ">= 2.4.2"
+gem "liquid"
 
 group :test do
   gem 'shoulda', '~> 2.10.3'
