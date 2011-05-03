@@ -71,16 +71,6 @@ module ChiliProject
       end
       
       class ChildPages < ::Liquid::Tag
-        include ActionView::Helpers::TagHelper
-        include ActionView::Helpers::UrlHelper
-        include ActionView::Helpers::TextHelper
-        include ActionController::UrlWriter
-        include ApplicationHelper
-
-        def self.default_url_options
-          {:only_path => true }
-        end
-
         def initialize(tag_name, markup, tokens)
           super
           if markup.present?
@@ -99,9 +89,9 @@ module ChiliProject
 
           if @page_name.present? &&
               (@project.present? || @page_name.include?(':')) # Allow cross project use with project:page_name
-            return render_child_pages_from_single_page
+            return render_child_pages_from_single_page(context)
           elsif @project.present?
-            return render_all_pages
+            return render_all_pages(context)
           else
             return TagError.new('child_pages', 'With no argument, this tag can be called from projects only.').to_s
           end
@@ -110,26 +100,25 @@ module ChiliProject
 
         private
 
-        def render_child_pages_from_single_page
+        def render_child_pages_from_single_page(context)
           cross_project_page = @page_name.include?(':')
           page = Wiki.find_page(@page_name.to_s, :project => (cross_project_page ? nil : @project))
 
           return TagError.new('child_pages', 'Page not found').to_s if page.nil? || !User.current.allowed_to?(:view_wiki_pages, page.wiki.project)
 
           pages = ([page] + page.descendants).group_by(&:parent_id)
-          return render_page_hierarchy(pages, @options[:parent] ? page.parent_id : page.id)
+          return context.registers[:view].render_page_hierarchy(pages, @options[:parent] ? page.parent_id : page.id)
         end
         
-        def render_all_pages
+        def render_all_pages(context)
           return '' unless @project.wiki.present? && @project.wiki.pages.present?
           return TagError.new('child_pages', 'Page not found').to_s if !User.current.allowed_to?(:view_wiki_pages, @project)
 
-          return render_page_hierarchy(@project.wiki.pages.group_by(&:parent_id))
+          return context.registers[:view].render_page_hierarchy(@project.wiki.pages.group_by(&:parent_id))
         end
       end
 
       class IncludePage < ::Liquid::Tag
-        include ApplicationHelper
 
         def initialize(tag_name, markup, tokens)
           super
