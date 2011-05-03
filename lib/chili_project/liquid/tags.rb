@@ -146,19 +146,36 @@ module ChiliProject
 
             page = Wiki.find_page(@page_name.to_s, :project => (cross_project_page ? nil : @project))
             return TagError.new('include_page', 'Page not found').to_s if page.nil? || !User.current.allowed_to?(:view_wiki_pages, page.wiki.project)
+            return TagError.new('include_page', 'Circular inclusion detected').to_s if circular_inclusion?(context, page)
 
-            @included_wiki_pages = context['included_wiki_pages']
-            @included_wiki_pages ||= []
+            add_page_to_included_page(context, page)
             
-            return TagError.new('include_page', 'Circular inclusion detected').to_s if @included_wiki_pages.include?(page.title)
-            @included_wiki_pages << page.title
-            out = textilizable(page.content, :text, :attachments => page.attachments, :headings => false)
+            # Call textilizable on the view so all of the helpers are loaded
+            # based on the view and not this tag
+            out = context.registers[:view].textilizable(page.content, :text, :attachments => page.attachments, :headings => false)
             @included_wiki_pages.pop
             return out
 
           else
             return TagError.new('include_page', 'Page not found').to_s
           end
+        end
+        
+        private
+
+        def circular_inclusion?(context, page)
+          @included_wiki_pages = context['included_wiki_pages']
+          @included_wiki_pages ||= []
+          @included_wiki_pages.include?(page.title)
+        end
+
+        # Handle circular inclusion by storing a list of the already
+        # included pages into an ivar in the view. Then it will come
+        # into Liquid as part of context, which we can check.
+        #
+        def add_page_to_included_page(context, page)
+          @included_wiki_pages << page.title
+          context.registers[:view].instance_variable_set('@included_wiki_pages', @included_wiki_pages)
         end
       end
 
