@@ -15,7 +15,6 @@ require 'forwardable'
 require 'cgi'
 
 module ApplicationHelper
-  include Redmine::WikiFormatting::Macros::Definitions
   include Redmine::I18n
   include GravatarHelper::PublicMethods
 
@@ -459,7 +458,7 @@ module ApplicationHelper
     only_path = options.delete(:only_path) == false ? false : true
 
     begin
-      text = Redmine::WikiFormatting.to_html(Setting.text_formatting, text, :object => obj, :attribute => attr) { |macro, args| exec_macro(macro, obj, args) }
+      text = Redmine::WikiFormatting.to_html(Setting.text_formatting, text, :object => obj, :attribute => attr)
       liquid_template = Liquid::Template.parse(text)
       liquid_variables = get_view_instance_variables_for_liquid
       liquid_variables.merge!({'current_user' => User.current})
