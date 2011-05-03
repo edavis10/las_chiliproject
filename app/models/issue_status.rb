@@ -25,6 +25,10 @@ class IssueStatus < ActiveRecord::Base
 
   def after_save
     IssueStatus.update_all("is_default=#{connection.quoted_false}", ['id <> ?', id]) if self.is_default?
+  end  
+  
+  def to_liquid
+    IssueStatusDrop.new(self)
   end
 
   # Returns the default status for new issues

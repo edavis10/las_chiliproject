@@ -28,6 +28,10 @@ class Tracker < ActiveRecord::Base
   validates_uniqueness_of :name
   validates_length_of :name, :maximum => 30
 
+  def to_liquid
+    TrackerDrop.new(self)
+  end
+
   def to_s; name end
 
   def <=>(tracker)
