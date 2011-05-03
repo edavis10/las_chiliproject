@@ -94,30 +94,37 @@ module ChiliProject
         end
 
         def render(context)
-          if context['project'].present? # inside of a project
-            @project = context['project'].object
-          end
+          # inside of a project
+          @project = context['project'].object if context['project'].present?
 
           if @page_name.present? &&
               (@project.present? || @page_name.include?(':')) # Allow cross project use with project:page_name
-            cross_project_page = @page_name.include?(':')
-
-            page = Wiki.find_page(@page_name.to_s, :project => (cross_project_page ? nil : @project))
-
-            return TagError.new('child_pages', 'Page not found').to_s if page.nil? || !User.current.allowed_to?(:view_wiki_pages, page.wiki.project)
-
-            pages = ([page] + page.descendants).group_by(&:parent_id)
-            return render_page_hierarchy(pages, @options[:parent] ? page.parent_id : page.id)
+            return render_child_pages_from_single_page
           elsif @project.present?
-            @project = context['project'].object
-            return '' unless @project.wiki.present? && @project.wiki.pages.present?
-            return TagError.new('child_pages', 'Page not found').to_s if !User.current.allowed_to?(:view_wiki_pages, @project)
-
-            return render_page_hierarchy(@project.wiki.pages.group_by(&:parent_id))
+            return render_all_pages
           else
             return TagError.new('child_pages', 'With no argument, this tag can be called from projects only.').to_s
           end
           
+        end
+
+        private
+
+        def render_child_pages_from_single_page
+          cross_project_page = @page_name.include?(':')
+          page = Wiki.find_page(@page_name.to_s, :project => (cross_project_page ? nil : @project))
+
+          return TagError.new('child_pages', 'Page not found').to_s if page.nil? || !User.current.allowed_to?(:view_wiki_pages, page.wiki.project)
+
+          pages = ([page] + page.descendants).group_by(&:parent_id)
+          return render_page_hierarchy(pages, @options[:parent] ? page.parent_id : page.id)
+        end
+        
+        def render_all_pages
+          return '' unless @project.wiki.present? && @project.wiki.pages.present?
+          return TagError.new('child_pages', 'Page not found').to_s if !User.current.allowed_to?(:view_wiki_pages, @project)
+
+          return render_page_hierarchy(@project.wiki.pages.group_by(&:parent_id))
         end
       end
 
