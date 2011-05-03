@@ -128,7 +128,39 @@ module ChiliProject
         end
       end
 
-      # TODO: include
+      class IncludePage < ::Liquid::Tag
+        include ApplicationHelper
+
+        def initialize(tag_name, markup, tokens)
+          super
+          if markup.present?
+            @page_name = markup.gsub(/["']/,'').strip
+          end
+        end
+
+        def render(context)
+          @project = context['project'].object if context['project'].present?
+
+          if @page_name.present?
+            cross_project_page = @page_name.include?(':')
+
+            page = Wiki.find_page(@page_name.to_s, :project => (cross_project_page ? nil : @project))
+            return TagError.new('include_page', 'Page not found').to_s if page.nil? || !User.current.allowed_to?(:view_wiki_pages, page.wiki.project)
+
+            @included_wiki_pages = context['included_wiki_pages']
+            @included_wiki_pages ||= []
+            
+            return TagError.new('include_page', 'Circular inclusion detected').to_s if @included_wiki_pages.include?(page.title)
+            @included_wiki_pages << page.title
+            out = textilizable(page.content, :text, :attachments => page.attachments, :headings => false)
+            @included_wiki_pages.pop
+            return out
+
+          else
+            return TagError.new('include_page', 'Page not found').to_s
+          end
+        end
+      end
 
     end
   end
@@ -138,3 +170,4 @@ Liquid::Template.register_tag('hello_world', ChiliProject::Liquid::Tags::HelloWo
 Liquid::Template.register_tag('variable_list', ChiliProject::Liquid::Tags::VariableList)
 Liquid::Template.register_tag('tag_list', ChiliProject::Liquid::Tags::TagList)
 Liquid::Template.register_tag('child_pages', ChiliProject::Liquid::Tags::ChildPages)
+Liquid::Template.register_tag('include_page', ChiliProject::Liquid::Tags::IncludePage)
