@@ -459,6 +459,7 @@ module ApplicationHelper
 
     begin
       text = Redmine::WikiFormatting.to_html(Setting.text_formatting, text, :object => obj, :attribute => attr)
+      ChiliProject::Liquid::Legacy.run_macros(text)
       liquid_template = Liquid::Template.parse(text)
       liquid_variables = get_view_instance_variables_for_liquid
       liquid_variables.merge!({'current_user' => User.current})

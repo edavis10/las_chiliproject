@@ -26,6 +26,9 @@ module ChiliProject
 
       end
 
+      class Base < ::Liquid::Tag
+      end
+      
       # TODO: migration from macros to Liquid
       
       class HelloWorld < ::Liquid::Tag
