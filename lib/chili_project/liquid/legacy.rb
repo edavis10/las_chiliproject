@@ -13,19 +13,23 @@ module ChiliProject
           next unless macro[:match].present? && macro[:replace].present?
           content.gsub!(macro[:match]) do |match|
             # Use block form so $1 is set properly
-            "{#{macro[:replace]} #{$1} #{macro[:replace]}}"
+            "{#{macro[:replace]} #{$1} #{macro[:replace]}}".
+              # Allow switching the macro name
+              sub(macro_name, macro[:new_name])
           end
         end
       end
     
       # Add support for a legacy macro syntax that was converted to liquid
-      def self.add(name, liquid_type)
+      def self.add(name, liquid_type, new_name=nil)
+        new_name = name unless new_name.present?
         case liquid_type
         when :tag
         
           @macros[name.to_s] = {
-            :match => Regexp.new(/\{\{.(#{name}.*? )\}\}/),
-            :replace => "%"
+            :match => Regexp.new(/\{\{?.(#{name}.*?)\}\}/),
+            :replace => "%",
+            :new_name => new_name
           }
         end
       
