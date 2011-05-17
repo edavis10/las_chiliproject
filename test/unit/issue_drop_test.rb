@@ -6,6 +6,9 @@ class IssueDropTest < ActiveSupport::TestCase
   def setup
     @project = Project.generate!
     @issue = Issue.generate_for_project!(@project)
+    User.current = @user = User.generate!
+    @role = Role.generate!(:permissions => [:view_issues])
+    Member.generate!(:principal => @user, :project => @project, :roles => [@role])
     @drop = IssueDrop.new(@issue)
   end
 
@@ -63,5 +66,17 @@ class IssueDropTest < ActiveSupport::TestCase
       assert_equal @issue.subject, @drop.subject # no confict
     end
   end
-  
+
+  should "only load an object if it's visible to the current user" do
+    assert User.current.logged?
+    assert @issue.visible?
+
+    @private_project = Project.generate!(:is_public => false)
+    @private_issue = Issue.generate_for_project!(@private_project)
+    
+    assert !@private_issue.visible?, "Issue is visible"
+    @private_drop = IssueDrop.new(@private_issue)
+    assert_equal nil, @private_drop.object
+    assert_equal nil, @private_drop.subject
+  end
 end

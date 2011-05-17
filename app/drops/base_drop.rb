@@ -15,7 +15,7 @@ class BaseDrop < Liquid::Drop
     class_eval do
       allowed_methods.each do |sym|
         define_method sym do
-          @object.send sym
+          @object.send(:try, sym)
         end
       end
     end

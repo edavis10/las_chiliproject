@@ -1,9 +1,11 @@
 class ProjectDrop < BaseDrop
-  def name
-    @object.name
+  
+  def initialize(object)
+    if object.visible?
+      @object = object
+    end
   end
 
-  def identifier
-    @object.identifier
-  end
+  allowed_methods :name
+  allowed_methods :identifier
 end

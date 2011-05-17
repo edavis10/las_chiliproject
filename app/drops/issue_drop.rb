@@ -1,5 +1,11 @@
 class IssueDrop < BaseDrop
 
+  def initialize(object)
+    if object.visible?
+      @object = object
+    end
+  end
+
   allowed_methods :subject
   allowed_methods :description
   allowed_methods :project
