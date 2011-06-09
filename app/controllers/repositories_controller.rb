@@ -67,13 +67,13 @@ class RepositoriesController < ApplicationController
       redirect_to :action => 'committers', :id => @project
     end
   end
-  
+
   def destroy
     @repository.destroy
     redirect_to :controller => 'projects', :action => 'settings', :id => @project, :tab => 'repository'
   end
-  
-  def show 
+
+  def show
     @repository.fetch_changesets if Setting.autofetch_changesets? && @path.empty?
 
     @entries = @repository.entries(@path, @rev)
@@ -88,30 +88,31 @@ class RepositoriesController < ApplicationController
   end
 
   alias_method :browse, :show
-  
+
   def changes
     @entry = @repository.entry(@path, @rev)
     (show_error_not_found; return) unless @entry
     @changesets = @repository.latest_changesets(@path, @rev, Setting.repository_log_display_limit.to_i)
     @properties = @repository.properties(@path, @rev)
+    @changeset = @repository.find_changeset_by_name(@rev)
   end
-  
+
   def revisions
     @changeset_count = @repository.changesets.count
     @changeset_pages = Paginator.new self, @changeset_count,
-								      per_page_option,
-								      params['page']								
+                                     per_page_option,
+                                     params['page']
     @changesets = @repository.changesets.find(:all,
-						:limit  =>  @changeset_pages.items_per_page,
-						:offset =>  @changeset_pages.current.offset,
-            :include => [:user, :repository])
+                       :limit  =>  @changeset_pages.items_per_page,
+                       :offset =>  @changeset_pages.current.offset,
+                       :include => [:user, :repository])
 
     respond_to do |format|
       format.html { render :layout => false if request.xhr? }
       format.atom { render_feed(@changesets, :title => "#{@project.name}: #{l(:label_revision_plural)}") }
     end
   end
-  
+
   def entry
     @entry = @repository.entry(@path, @rev)
     (show_error_not_found; return) unless @entry
@@ -121,24 +122,28 @@ class RepositoriesController < ApplicationController
 
     @content = @repository.cat(@path, @rev)
     (show_error_not_found; return) unless @content
-    if 'raw' == params[:format] || @content.is_binary_data? || (@entry.size && @entry.size > Setting.file_max_size_displayed.to_i.kilobyte)
+    if 'raw' == params[:format] || @content.is_binary_data? ||
+         (@entry.size && @entry.size > Setting.file_max_size_displayed.to_i.kilobyte)
       # Force the download
-      send_data @content, :filename => @path.split('/').last
+      send_data @content, :filename => filename_for_content_disposition(@path.split('/').last)
     else
       # Prevent empty lines when displaying a file with Windows style eol
       @content.gsub!("\r\n", "\n")
+      @changeset = @repository.find_changeset_by_name(@rev)
    end
   end
-  
+
   def annotate
     @entry = @repository.entry(@path, @rev)
     (show_error_not_found; return) unless @entry
-    
+
     @annotate = @repository.scm.annotate(@path, @rev)
     (render_error l(:error_scm_annotate); return) if @annotate.nil? || @annotate.empty?
+    @changeset = @repository.find_changeset_by_name(@rev)
   end
-  
+
   def revision
+    raise ChangesetNotFound if @rev.blank?
     @changeset = @repository.find_changeset_by_name(@rev)
     raise ChangesetNotFound unless @changeset
 
@@ -149,7 +154,7 @@ class RepositoriesController < ApplicationController
   rescue ChangesetNotFound
     show_error_not_found
   end
-  
+
   def diff
     if params[:format] == 'diff'
       @diff = @repository.diff(@path, @rev, @rev_to)
@@ -174,14 +179,18 @@ class RepositoriesController < ApplicationController
         @diff = @repository.diff(@path, @rev, @rev_to)
         show_error_not_found unless @diff
       end
+
+      @changeset = @repository.find_changeset_by_name(@rev)
+      @changeset_to = @rev_to ? @repository.find_changeset_by_name(@rev_to) : nil
+      @diff_format_revisions = @repository.diff_format_revisions(@changeset, @changeset_to)
     end
   end
-  
-  def stats  
+
+  def stats
   end
-  
+
   def graph
-    data = nil    
+    data = nil
     case params[:graph]
     when "commits_per_month"
       data = graph_commits_per_month(@repository)
@@ -196,7 +205,10 @@ class RepositoriesController < ApplicationController
     end
   end
   
-private
+  private
+
+  REV_PARAM_RE = %r{\A[a-f0-9]*\Z}i
+
   def find_repository
     @project = Project.find(params[:id])
     @repository = @project.repository
@@ -205,6 +217,12 @@ private
     @path ||= ''
     @rev = params[:rev].blank? ? @repository.default_branch : params[:rev].strip
     @rev_to = params[:rev_to]
+    
+    unless @rev.to_s.match(REV_PARAM_RE) && @rev.to_s.match(REV_PARAM_RE)
+      if @repository.branches.blank?
+        raise InvalidRevisionParam
+      end
+    end
   rescue ActiveRecord::RecordNotFound
     render_404
   rescue InvalidRevisionParam
@@ -212,7 +230,7 @@ private
   end
 
   def show_error_not_found
-    render_error l(:error_scm_not_found)
+    render_error :message => l(:error_scm_not_found), :status => 404
   end
   
   # Handler for Redmine::Scm::Adapters::CommandFailed exception

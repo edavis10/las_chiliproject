@@ -67,7 +67,7 @@ class AccountController < ApplicationController
         if token.save
           Mailer.deliver_lost_password(token)
           flash[:notice] = l(:notice_account_lost_email_sent)
-          redirect_to :action => 'login'
+          redirect_to :action => 'login', :back_url => home_url
           return
         end
       end
@@ -129,7 +129,7 @@ class AccountController < ApplicationController
   
   def logout_user
     if User.current.logged?
-      cookies.delete :autologin
+      cookies.delete Redmine::Configuration['autologin_cookie_name']
       Token.delete_all(["user_id = ? AND action = ?", User.current.id, 'autologin'])
       self.logged_user = nil
     end
@@ -203,11 +203,22 @@ class AccountController < ApplicationController
     self.logged_user = user
     # generate a key and set cookie if autologin
     if params[:autologin] && Setting.autologin?
-      token = Token.create(:user => user, :action => 'autologin')
-      cookies[:autologin] = { :value => token.value, :expires => 1.year.from_now }
+      set_autologin_cookie(user)
     end
     call_hook(:controller_account_success_authentication_after, {:user => user })
     redirect_back_or_default :controller => 'my', :action => 'page'
+  end
+  
+  def set_autologin_cookie(user)
+    token = Token.create(:user => user, :action => 'autologin')
+    cookie_options = {
+      :value => token.value,
+      :expires => 1.year.from_now,
+      :path => Redmine::Configuration['autologin_cookie_path'],
+      :secure => Redmine::Configuration['autologin_cookie_secure'],
+      :httponly => true
+    }
+    cookies[Redmine::Configuration['autologin_cookie_name']] = cookie_options
   end
 
   # Onthefly creation failed, display the registration form to fill/fix attributes

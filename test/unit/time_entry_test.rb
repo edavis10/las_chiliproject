@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-require File.dirname(__FILE__) + '/../test_helper'
+require File.expand_path('../../test_helper', __FILE__)
 
 class TimeEntryTest < ActiveSupport::TestCase
   fixtures :issues, :projects, :users, :time_entries
@@ -48,4 +48,88 @@ class TimeEntryTest < ActiveSupport::TestCase
   def test_hours_should_default_to_nil
     assert_nil TimeEntry.new.hours
   end
+  
+  def test_spent_on_with_blank
+    c = TimeEntry.new
+    c.spent_on = ''
+    assert_nil c.spent_on
+  end
+  
+  def test_spent_on_with_nil
+    c = TimeEntry.new
+    c.spent_on = nil
+    assert_nil c.spent_on
+  end
+  
+  def test_spent_on_with_string
+    c = TimeEntry.new
+    c.spent_on = "2011-01-14"
+    assert_equal Date.parse("2011-01-14"), c.spent_on
+  end
+  
+  def test_spent_on_with_invalid_string
+    c = TimeEntry.new
+    c.spent_on = "foo"
+    assert_nil c.spent_on
+  end
+  
+  def test_spent_on_with_date
+    c = TimeEntry.new
+    c.spent_on = Date.today
+    assert_equal Date.today, c.spent_on
+  end
+  
+  def test_spent_on_with_time
+    c = TimeEntry.new
+    c.spent_on = Time.now
+    assert_equal Date.today, c.spent_on
+  end
+
+  context "#earilest_date_for_project" do
+    setup do
+      User.current = nil
+      @public_project = Project.generate!(:is_public => true)
+      @issue = Issue.generate_for_project!(@public_project)
+      TimeEntry.generate!(:spent_on => '2010-01-01',
+                          :issue => @issue,
+                          :project => @public_project)
+    end
+    
+    context "without a project" do
+      should "return the lowest spent_on value that is visible to the current user" do
+        assert_equal "2007-03-12", TimeEntry.earilest_date_for_project.to_s
+      end
+    end
+
+    context "with a project" do
+      should "return the lowest spent_on value that is visible to the current user for that project and it's subprojects only" do
+        assert_equal "2010-01-01", TimeEntry.earilest_date_for_project(@public_project).to_s
+      end
+    end
+      
+  end
+
+  context "#latest_date_for_project" do
+    setup do
+      User.current = nil
+      @public_project = Project.generate!(:is_public => true)
+      @issue = Issue.generate_for_project!(@public_project)
+      TimeEntry.generate!(:spent_on => '2010-01-01',
+                          :issue => @issue,
+                          :project => @public_project)
+    end
+
+    context "without a project" do
+      should "return the highest spent_on value that is visible to the current user" do
+        assert_equal "2010-01-01", TimeEntry.latest_date_for_project.to_s
+      end
+    end
+
+    context "with a project" do
+      should "return the highest spent_on value that is visible to the current user for that project and it's subprojects only" do
+        project = Project.find(1)
+        assert_equal "2007-04-22", TimeEntry.latest_date_for_project(project).to_s
+      end
+    end
+  end  
 end

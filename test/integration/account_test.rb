@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-require "#{File.dirname(__FILE__)}/../test_helper"
+require File.expand_path('../../test_helper', __FILE__)
 
 begin
   require 'mocha'
@@ -44,13 +44,13 @@ class AccountTest < ActionController::IntegrationTest
     
     # User logs in with 'autologin' checked
     post '/login', :username => user.login, :password => 'admin', :autologin => 1
-    assert_redirected_to 'my/page'
+    assert_redirected_to '/my/page'
     token = Token.find :first
     assert_not_nil token
     assert_equal user, token.user
     assert_equal 'autologin', token.action
     assert_equal user.id, session[:user_id]
-    assert_equal token.value, cookies['autologin']
+    assert_equal token.value, cookies[Redmine::Configuration['autologin_cookie_name']]
     
     # Session is cleared
     reset!
@@ -60,7 +60,7 @@ class AccountTest < ActionController::IntegrationTest
     assert_nil user.reload.last_login_on
     
     # User comes back with his autologin cookie
-    cookies[:autologin] = token.value
+    cookies[Redmine::Configuration['autologin_cookie_name']] = token.value
     get '/my/page'
     assert_response :success
     assert_template 'my/page'
@@ -77,7 +77,7 @@ class AccountTest < ActionController::IntegrationTest
     assert_template "account/lost_password"
     
     post "account/lost_password", :mail => 'jSmith@somenet.foo'
-    assert_redirected_to "/login"
+    assert_redirected_to "/login?back_url=http%3A%2F%2Fwww.example.com%2F"
     
     token = Token.find(:first)
     assert_equal 'recovery', token.action
@@ -105,7 +105,7 @@ class AccountTest < ActionController::IntegrationTest
     
     post 'account/register', :user => {:login => "newuser", :language => "en", :firstname => "New", :lastname => "User", :mail => "newuser@foo.bar"}, 
                              :password => "newpass", :password_confirmation => "newpass"
-    assert_redirected_to 'my/account'
+    assert_redirected_to '/my/account'
     follow_redirect!
     assert_response :success
     assert_template 'my/account'
@@ -143,6 +143,30 @@ class AccountTest < ActionController::IntegrationTest
     assert_redirected_to '/login'
     log_user('newuser', 'newpass')
   end
+
+  should_eventually "login after losing password should redirect back to home" do
+    visit "/login"
+    assert_response :success
+
+    click_link "Lost password"
+    assert_response :success
+
+    # Lost password form
+    fill_in "mail", :with => "admin@somenet.foo"
+    click_button "Submit"
+    
+    assert_response :success # back to login page
+    assert_equal "/login", current_path
+
+    fill_in "Login:", :with => 'admin'
+    fill_in "Password:", :with => 'test'
+    click_button "login"
+
+    assert_response :success
+    assert_equal "/", current_path
+    
+  end
+  
   
   if Object.const_defined?(:Mocha)
   
@@ -152,7 +176,7 @@ class AccountTest < ActionController::IntegrationTest
     AuthSource.expects(:authenticate).returns({:login => 'foo', :firstname => 'Foo', :lastname => 'Smith', :mail => 'foo@bar.com', :auth_source_id => 66})
   
     post 'account/login', :username => 'foo', :password => 'bar'
-    assert_redirected_to 'my/page'
+    assert_redirected_to '/my/page'
     
     user = User.find_by_login('foo')
     assert user.is_a?(User)
@@ -187,7 +211,7 @@ class AccountTest < ActionController::IntegrationTest
     sid = session[:session_id]
     
     post '/login', :username => 'admin', :password => 'admin'
-    assert_redirected_to 'my/page'
+    assert_redirected_to '/my/page'
     assert_not_equal sid, session[:session_id], "login should reset session"
     assert_equal 1, session[:user_id]
     sid = session[:session_id]

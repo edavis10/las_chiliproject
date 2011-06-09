@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-require File.dirname(__FILE__) + '/../test_helper'
+require File.expand_path('../../test_helper', __FILE__)
 
 class IssueTest < ActiveSupport::TestCase
   fixtures :projects, :users, :members, :member_roles, :roles,
@@ -506,6 +506,17 @@ class IssueTest < ActiveSupport::TestCase
     assert !closed_statuses.empty?
   end
   
+  def test_rescheduling_an_issue_should_reschedule_following_issue
+    issue1 = Issue.create!(:project_id => 1, :tracker_id => 1, :author_id => 1, :status_id => 1, :subject => '-', :start_date => Date.today, :due_date => Date.today + 2)
+    issue2 = Issue.create!(:project_id => 1, :tracker_id => 1, :author_id => 1, :status_id => 1, :subject => '-', :start_date => Date.today, :due_date => Date.today + 2)
+    IssueRelation.create!(:issue_from => issue1, :issue_to => issue2, :relation_type => IssueRelation::TYPE_PRECEDES)
+    assert_equal issue1.due_date + 1, issue2.reload.start_date
+    
+    issue1.due_date = Date.today + 5
+    issue1.save!
+    assert_equal issue1.due_date + 1, issue2.reload.start_date
+  end
+  
   def test_overdue
     assert Issue.new(:due_date => 1.day.ago.to_date).overdue?
     assert !Issue.new(:due_date => Date.today).overdue?
@@ -535,9 +546,28 @@ class IssueTest < ActiveSupport::TestCase
       assert Issue.new(:start_date => 100.days.ago.to_date, :due_date => Date.today, :done_ratio => 90).behind_schedule?
     end
   end
-  
-  def test_assignable_users
-    assert_kind_of User, Issue.find(1).assignable_users.first
+
+  context "#assignable_users" do
+    should "be Users" do
+      assert_kind_of User, Issue.find(1).assignable_users.first
+    end
+
+    should "include the issue author" do
+      project = Project.find(1)
+      non_project_member = User.generate!
+      issue = Issue.generate_for_project!(project, :author => non_project_member)
+
+      assert issue.assignable_users.include?(non_project_member)
+    end
+
+    should "not show the issue author twice" do
+      assignable_user_ids = Issue.find(1).assignable_users.collect(&:id)
+      assert_equal 2, assignable_user_ids.length
+      
+      assignable_user_ids.each do |user_id|
+        assert_equal 1, assignable_user_ids.select {|i| i == user_id}.length, "User #{user_id} appears more or less than once"
+      end
+    end
   end
   
   def test_create_should_send_email_notification
@@ -591,11 +621,33 @@ class IssueTest < ActiveSupport::TestCase
     end
   end
 
+  def test_all_dependent_issues
+    IssueRelation.delete_all
+    assert IssueRelation.create!(:issue_from => Issue.find(1), :issue_to => Issue.find(2), :relation_type => IssueRelation::TYPE_PRECEDES)
+    assert IssueRelation.create!(:issue_from => Issue.find(2), :issue_to => Issue.find(3), :relation_type => IssueRelation::TYPE_PRECEDES)
+    assert IssueRelation.create!(:issue_from => Issue.find(3), :issue_to => Issue.find(8), :relation_type => IssueRelation::TYPE_PRECEDES)
+    
+    assert_equal [2, 3, 8], Issue.find(1).all_dependent_issues.collect(&:id).sort
+  end
+
+  def test_all_dependent_issues_with_persistent_circular_dependency
+    IssueRelation.delete_all
+    assert IssueRelation.create!(:issue_from => Issue.find(1), :issue_to => Issue.find(2), :relation_type => IssueRelation::TYPE_PRECEDES)
+    assert IssueRelation.create!(:issue_from => Issue.find(2), :issue_to => Issue.find(3), :relation_type => IssueRelation::TYPE_PRECEDES)
+    # Validation skipping
+    assert IssueRelation.new(:issue_from => Issue.find(3), :issue_to => Issue.find(1), :relation_type => IssueRelation::TYPE_PRECEDES).save(false)
+    
+    assert_equal [2, 3], Issue.find(1).all_dependent_issues.collect(&:id).sort
+  end
+  
   context "#done_ratio" do
     setup do
       @issue = Issue.find(1)
       @issue_status = IssueStatus.find(1)
       @issue_status.update_attribute(:default_done_ratio, 50)
+      @issue2 = Issue.find(2)
+      @issue_status2 = IssueStatus.find(2)
+      @issue_status2.update_attribute(:default_done_ratio, 0)
     end
     
     context "with Setting.issue_done_ratio using the issue_field" do
@@ -605,6 +657,7 @@ class IssueTest < ActiveSupport::TestCase
       
       should "read the issue's field" do
         assert_equal 0, @issue.done_ratio
+        assert_equal 30, @issue2.done_ratio
       end
     end
 
@@ -615,6 +668,7 @@ class IssueTest < ActiveSupport::TestCase
       
       should "read the Issue Status's default done ratio" do
         assert_equal 50, @issue.done_ratio
+        assert_equal 0, @issue2.done_ratio
       end
     end
   end
@@ -624,6 +678,9 @@ class IssueTest < ActiveSupport::TestCase
       @issue = Issue.find(1)
       @issue_status = IssueStatus.find(1)
       @issue_status.update_attribute(:default_done_ratio, 50)
+      @issue2 = Issue.find(2)
+      @issue_status2 = IssueStatus.find(2)
+      @issue_status2.update_attribute(:default_done_ratio, 0)
     end
     
     context "with Setting.issue_done_ratio using the issue_field" do
@@ -633,8 +690,10 @@ class IssueTest < ActiveSupport::TestCase
       
       should "not change the issue" do
         @issue.update_done_ratio_from_issue_status
+        @issue2.update_done_ratio_from_issue_status
 
-        assert_equal 0, @issue.done_ratio
+        assert_equal 0, @issue.read_attribute(:done_ratio)
+        assert_equal 30, @issue2.read_attribute(:done_ratio)
       end
     end
 
@@ -643,10 +702,12 @@ class IssueTest < ActiveSupport::TestCase
         Setting.issue_done_ratio = 'issue_status'
       end
       
-      should "not change the issue's done ratio" do
+      should "change the issue's done ratio" do
         @issue.update_done_ratio_from_issue_status
+        @issue2.update_done_ratio_from_issue_status
 
-        assert_equal 50, @issue.done_ratio
+        assert_equal 50, @issue.read_attribute(:done_ratio)
+        assert_equal 0, @issue2.read_attribute(:done_ratio)
       end
     end
   end

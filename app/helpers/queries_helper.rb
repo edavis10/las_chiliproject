@@ -78,14 +78,9 @@ module QueriesHelper
         # Give it a name, required to be valid
         @query = Query.new(:name => "_")
         @query.project = @project
-        if params[:fields] and params[:fields].is_a? Array
-          params[:fields].each do |field|
-            if @query.range_operator?(params[:operators][field])
-              @query.add_filter(field, params[:operators][field], [params[:from_values][field]] + [params[:to_values][field]])
-            else
-              @query.add_filter(field, params[:operators][field], params[:values][field])
-            end
-          end
+        if params[:fields]
+          @query.filters = {}
+          @query.add_filters(params[:fields], params[:operators], params[:values], params[:from_values], params[:to_values])
         else
           @query.available_filters.keys.each do |field|
             @query.add_short_filter(field, params[field]) if params[field]

@@ -15,9 +15,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-require File.dirname(__FILE__) + '/../../../test_helper'
+require File.expand_path('../../../../test_helper', __FILE__)
 
-class Redmine::NotifiableTest < Test::Unit::TestCase
+class Redmine::NotifiableTest < ActiveSupport::TestCase
   def setup
   end
 
@@ -25,7 +25,7 @@ class Redmine::NotifiableTest < Test::Unit::TestCase
     assert_equal 11, Redmine::Notifiable.all.length
 
     %w(issue_added issue_updated issue_note_added issue_status_updated issue_priority_updated news_added document_added file_added message_posted wiki_content_added wiki_content_updated).each do |notifiable|
-      assert Redmine::Notifiable.all.keys.include?(notifiable), "missing #{notifiable}"
+      assert Redmine::Notifiable.all.collect(&:name).include?(notifiable), "missing #{notifiable}"
     end
   end
 end

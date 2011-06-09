@@ -18,6 +18,12 @@ hr {
   background: #ccc;
   border: 0;
 }
+blockquote {
+  border-left: 3px solid #E0E0E0;
+  font-style: italic;
+  margin-left: 2.4em;
+  padding-left: 0.6em;
+}
 .footer {
   font-size: 0.8em;
   font-style: italic;
@@ -25,6 +31,7 @@ hr {
 </style>
 </head>
 <body>
+<span class="header"><%= Redmine::WikiFormatting.to_html(Setting.text_formatting, Setting.emails_header) %></span>
 <%= call_hook(:view_layouts_mailer_html_before_content, self.assigns.merge({:recipients => @recipients, :subject => @subject})) %>
 <%= yield %>
 <%= call_hook(:view_layouts_mailer_html_after_content, self.assigns.merge({:recipients => @recipients, :subject => @subject})) %>

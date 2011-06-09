@@ -16,6 +16,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 class Issue < ActiveRecord::Base
+  include Redmine::SafeAttributes
+  
   belongs_to :project
   belongs_to :tracker
   belongs_to :status, :class_name => 'IssueStatus', :foreign_key => 'status_id'
@@ -33,7 +35,7 @@ class Issue < ActiveRecord::Base
   has_many :relations_from, :class_name => 'IssueRelation', :foreign_key => 'issue_from_id', :dependent => :delete_all
   has_many :relations_to, :class_name => 'IssueRelation', :foreign_key => 'issue_to_id', :dependent => :delete_all
   
-  acts_as_nested_set :scope => 'root_id'
+  acts_as_nested_set :scope => 'root_id', :dependent => :destroy
   acts_as_attachable :after_remove => :attachment_removed
   acts_as_customizable
   acts_as_watchable
@@ -69,8 +71,7 @@ class Issue < ActiveRecord::Base
                                   :conditions => ["#{Project.table_name}.status=#{Project::STATUS_ACTIVE}"]
   named_scope :for_gantt, lambda {
     {
-      :include => [:tracker, :status, :assigned_to, :priority, :project, :fixed_version],
-      :order => "#{Issue.table_name}.due_date ASC, #{Issue.table_name}.start_date ASC, #{Issue.table_name}.id ASC"
+      :include => [:tracker, :status, :assigned_to, :priority, :project, :fixed_version]
     }
   }
 
@@ -106,9 +107,8 @@ class Issue < ActiveRecord::Base
   }
 
   before_create :default_assign
-  before_save :reschedule_following_issues, :close_duplicates, :update_done_ratio_from_issue_status
-  after_save :update_nested_set_attributes, :update_parent_attributes, :create_journal
-  after_destroy :destroy_children
+  before_save :close_duplicates, :update_done_ratio_from_issue_status
+  after_save :reschedule_following_issues, :update_nested_set_attributes, :update_parent_attributes, :create_journal
   after_destroy :update_parent_attributes
   before_create :set_entered_by
   
@@ -259,33 +259,48 @@ class Issue < ActiveRecord::Base
     self.author_id == self.entered_by_id
   end
   
-  SAFE_ATTRIBUTES = %w(
-    tracker_id
-    status_id
-    parent_issue_id
-    category_id
-    assigned_to_id
-    priority_id
-    fixed_version_id
-    subject
-    description
-    start_date
-    due_date
-    done_ratio
-    estimated_hours
-    custom_field_values
-    lock_version
-    author_login
-  ) unless const_defined?(:SAFE_ATTRIBUTES)
+  safe_attributes 'tracker_id',
+    'status_id',
+    'parent_issue_id',
+    'category_id',
+    'assigned_to_id',
+    'priority_id',
+    'fixed_version_id',
+    'subject',
+    'description',
+    'start_date',
+    'due_date',
+    'done_ratio',
+    'estimated_hours',
+    'custom_field_values',
+    'custom_fields',
+    'lock_version',
+    'author_login',
+    :if => lambda {|issue, user| issue.new_record? || user.allowed_to?(:edit_issues, issue.project) }
   
+  safe_attributes 'status_id',
+    'assigned_to_id',
+    'fixed_version_id',
+    'done_ratio',
+    :if => lambda {|issue, user| issue.new_statuses_allowed_to(user).any? }
+
   # Safely sets attributes
   # Should be called from controllers instead of #attributes=
   # attr_accessible is too rough because we still want things like
   # Issue.new(:project => foo) to work
   # TODO: move workflow/permission checks from controllers to here
   def safe_attributes=(attrs, user=User.current)
-    return if attrs.nil?
-    attrs = attrs.reject {|k,v| !SAFE_ATTRIBUTES.include?(k)}
+    return unless attrs.is_a?(Hash)
+    
+    # User can change issue attributes only if he has :edit permission or if a workflow transition is allowed
+    attrs = delete_unsafe_attributes(attrs, user)
+    return if attrs.empty? 
+    
+    # Tracker must be set before since new_statuses_allowed_to depends on it.
+    if t = attrs.delete('tracker_id')
+      self.tracker_id = t
+    end
+    
     if attrs['status_id']
       unless new_statuses_allowed_to(user).collect(&:id).include?(attrs['status_id'].to_i)
         attrs.delete('status_id')
@@ -300,7 +315,7 @@ class Issue < ActiveRecord::Base
       if !user.allowed_to?(:manage_subtasks, project)
         attrs.delete('parent_issue_id')
       elsif !attrs['parent_issue_id'].blank?
-        attrs.delete('parent_issue_id') unless Issue.visible(user).exists?(attrs['parent_issue_id'])
+        attrs.delete('parent_issue_id') unless Issue.visible(user).exists?(attrs['parent_issue_id'].to_i)
       end
     end
     
@@ -308,7 +323,7 @@ class Issue < ActiveRecord::Base
   end
   
   def done_ratio
-    if Issue.use_status_for_done_ratio? && status && status.default_done_ratio?
+    if Issue.use_status_for_done_ratio? && status && status.default_done_ratio
       status.default_done_ratio
     else
       read_attribute(:done_ratio)
@@ -371,7 +386,7 @@ class Issue < ActiveRecord::Base
   # Set the done_ratio using the status if that setting is set.  This will keep the done_ratios
   # even if the user turns off the setting later
   def update_done_ratio_from_issue_status
-    if Issue.use_status_for_done_ratio? && status && status.default_done_ratio?
+    if Issue.use_status_for_done_ratio? && status && status.default_done_ratio
       self.done_ratio = status.default_done_ratio
     end
   end
@@ -427,10 +442,17 @@ class Issue < ActiveRecord::Base
     done_date = start_date + ((due_date - start_date+1)* done_ratio/100).floor
     return done_date <= Date.today
   end
+
+  # Does this issue have children?
+  def children?
+    !leaf?
+  end
   
   # Users the issue can be assigned to
   def assignable_users
-    project.assignable_users
+    users = project.assignable_users
+    users << author if author
+    users.uniq.sort
   end
   
   # Versions that the issue can be assigned to
@@ -478,11 +500,14 @@ class Issue < ActiveRecord::Base
     (relations_from + relations_to).sort
   end
   
-  def all_dependent_issues
+  def all_dependent_issues(except=nil)
+    except ||= self
     dependencies = []
     relations_from.each do |relation|
-      dependencies << relation.issue_to
-      dependencies += relation.issue_to.all_dependent_issues
+      if relation.issue_to && relation.issue_to != except
+        dependencies << relation.issue_to
+        dependencies += relation.issue_to.all_dependent_issues(except)
+      end
     end
     dependencies
   end
@@ -767,7 +792,7 @@ class Issue < ActiveRecord::Base
       p.recalculate_start_and_due_date
       
       # done ratio = weighted average ratio of leaves
-      unless Issue.use_status_for_done_ratio? && p.status && p.status.default_done_ratio?
+      unless Issue.use_status_for_done_ratio? && p.status && p.status.default_done_ratio
         leaves_count = p.leaves.count
         if leaves_count > 0
           average = p.leaves.average(:estimated_hours).to_f
@@ -904,7 +929,7 @@ class Issue < ActiveRecord::Base
                                                 j.id as #{select_field},
                                                 count(i.id) as total 
                                               from 
-                                                  #{Issue.table_name} i, #{IssueStatus.table_name} s, #{joins} as j
+                                                  #{Issue.table_name} i, #{IssueStatus.table_name} s, #{joins} j
                                               where 
                                                 i.status_id=s.id 
                                                 and #{where}

@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-require File.dirname(__FILE__) + '/../test_helper'
+require File.expand_path('../../test_helper', __FILE__)
 
 class MailerTest < ActiveSupport::TestCase
   include Redmine::I18n
@@ -275,6 +275,26 @@ class MailerTest < ActiveSupport::TestCase
     end
   end
   
+  def test_wiki_content_added
+    content = WikiContent.find(:first)
+    valid_languages.each do |lang|
+      Setting.default_language = lang.to_s
+      assert_difference 'ActionMailer::Base.deliveries.size' do
+        assert Mailer.deliver_wiki_content_added(content, 'jsmith@somenet.foo')
+      end
+    end
+  end
+  
+  def test_wiki_content_updated
+    content = WikiContent.find(:first)
+    valid_languages.each do |lang|
+      Setting.default_language = lang.to_s
+      assert_difference 'ActionMailer::Base.deliveries.size' do
+        assert Mailer.deliver_wiki_content_updated(content, 'jsmith@somenet.foo')
+      end
+    end
+  end
+  
   def test_account_information
     user = User.find(2)
     valid_languages.each do |lang|
@@ -325,6 +345,16 @@ class MailerTest < ActiveSupport::TestCase
     assert_equal '1 issue(s) due in the next 42 days', mail.subject
   end
   
+  def test_reminders_for_users
+    Mailer.reminders(:days => 42, :users => ['5'])
+    assert_equal 0, ActionMailer::Base.deliveries.size # No mail for dlopper
+    Mailer.reminders(:days => 42, :users => ['3'])
+    assert_equal 1, ActionMailer::Base.deliveries.size # No mail for dlopper
+    mail = ActionMailer::Base.deliveries.last
+    assert mail.to.include?('dlopper@somenet.foo')
+    assert mail.body.include?('Bug #3: Error 281 when updating a recipe')
+  end
+  
   def last_email
     mail = ActionMailer::Base.deliveries.last
     assert_not_nil mail
@@ -353,4 +383,21 @@ class MailerTest < ActiveSupport::TestCase
     # should restore perform_deliveries
     assert ActionMailer::Base.perform_deliveries
   end
+
+  context "layout" do
+    should "include the emails_header" do
+      with_settings(:emails_header => "*Header content*") do
+        assert Mailer.deliver_test(User.find(1))
+
+        assert_select_email do
+          assert_select ".header" do
+            assert_select "strong", :text => "Header content"
+          end
+        end
+      end
+      
+    end
+    
+  end
+  
 end

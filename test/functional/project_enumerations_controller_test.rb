@@ -1,4 +1,4 @@
-require File.dirname(__FILE__) + '/../test_helper'
+require File.expand_path('../../test_helper', __FILE__)
 
 class ProjectEnumerationsControllerTest < ActionController::TestCase
   fixtures :all
@@ -20,7 +20,7 @@ class ProjectEnumerationsControllerTest < ActionController::TestCase
     }
 
     assert_response :redirect
-    assert_redirected_to 'projects/ecookbook/settings/activities'
+    assert_redirected_to '/projects/ecookbook/settings/activities'
 
     # Created project specific activities...
     project = Project.find('ecookbook')
@@ -83,7 +83,7 @@ class ProjectEnumerationsControllerTest < ActionController::TestCase
     }
 
     assert_response :redirect
-    assert_redirected_to 'projects/ecookbook/settings/activities'
+    assert_redirected_to '/projects/ecookbook/settings/activities'
 
     # Created project specific activities...
     project = Project.find('ecookbook')
@@ -159,7 +159,7 @@ class ProjectEnumerationsControllerTest < ActionController::TestCase
 
     delete :destroy, :project_id => 1
     assert_response :redirect
-    assert_redirected_to 'projects/ecookbook/settings/activities'
+    assert_redirected_to '/projects/ecookbook/settings/activities'
 
     assert_nil TimeEntryActivity.find_by_id(project_activity.id)
     assert_nil TimeEntryActivity.find_by_id(project_activity_two.id)
@@ -175,11 +175,11 @@ class ProjectEnumerationsControllerTest < ActionController::TestCase
                                              })
     assert project_activity.save
     assert TimeEntry.update_all("activity_id = '#{project_activity.id}'", ["project_id = ? AND activity_id = ?", 1, 9])
-    assert 3, TimeEntry.find_all_by_activity_id_and_project_id(project_activity.id, 1).size
+    assert_equal 3, TimeEntry.find_all_by_activity_id_and_project_id(project_activity.id, 1).size
     
     delete :destroy, :project_id => 1
     assert_response :redirect
-    assert_redirected_to 'projects/ecookbook/settings/activities'
+    assert_redirected_to '/projects/ecookbook/settings/activities'
 
     assert_nil TimeEntryActivity.find_by_id(project_activity.id)
     assert_equal 0, TimeEntry.find_all_by_activity_id_and_project_id(project_activity.id, 1).size, "TimeEntries still assigned to project specific activity"

@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-require File.dirname(__FILE__) + '/../test_helper'
+require File.expand_path('../../test_helper', __FILE__)
 require 'boards_controller'
 
 # Re-raise errors caught by the controller.
@@ -95,5 +95,12 @@ class BoardsControllerTest < ActionController::TestCase
     end
     assert_redirected_to '/projects/ecookbook/settings/boards'
     assert_nil Board.find_by_id(2)
+  end
+  
+  def test_index_should_404_with_no_board
+    Project.find(1).boards.each(&:destroy)
+    
+    get :index, :project_id => 1
+    assert_response 404
   end
 end

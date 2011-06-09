@@ -198,19 +198,27 @@ class Query < ActiveRecord::Base
     if project
       user_values += project.users.sort.collect{|s| [s.name, s.id.to_s] }
     else
-      project_ids = Project.all(:conditions => Project.visible_by(User.current)).collect(&:id)
-      if project_ids.any?
-        # members of the user's projects
-        user_values += User.active.find(:all, :conditions => ["#{User.table_name}.id IN (SELECT DISTINCT user_id FROM members WHERE project_id IN (?))", project_ids]).sort.collect{|s| [s.name, s.id.to_s] }
+      all_projects = Project.visible.all
+      if all_projects.any?
+        # members of visible projects
+        user_values += User.active.find(:all, :conditions => ["#{User.table_name}.id IN (SELECT DISTINCT user_id FROM members WHERE project_id IN (?))", all_projects.collect(&:id)]).sort.collect{|s| [s.name, s.id.to_s] }
+          
+        # project filter
+        project_values = []
+        Project.project_tree(all_projects) do |p, level|
+          prefix = (level > 0 ? ('--' * level + ' ') : '')
+          project_values << ["#{prefix}#{p.name}", p.id.to_s]
+        end
+        @available_filters["project_id"] = { :type => :list, :order => 1, :values => project_values} unless project_values.empty?
       end
     end
     @available_filters["assigned_to_id"] = { :type => :list_optional, :order => 4, :values => user_values } unless user_values.empty?
     @available_filters["author_id"] = { :type => :list, :order => 5, :values => user_values } unless user_values.empty?
 
-    group_values = Group.all.collect {|g| [g.name, g.id] }
+    group_values = Group.all.collect {|g| [g.name, g.id.to_s] }
     @available_filters["member_of_group"] = { :type => :list_optional, :order => 6, :values => group_values } unless group_values.empty?
 
-    role_values = Role.givable.collect {|r| [r.name, r.id] }
+    role_values = Role.givable.collect {|r| [r.name, r.id.to_s] }
     @available_filters["assigned_to_role"] = { :type => :list_optional, :order => 7, :values => role_values } unless role_values.empty?
     
     if User.current.logged?
@@ -236,12 +244,6 @@ class Query < ActiveRecord::Base
         @available_filters["fixed_version_id"] = { :type => :list_optional, :order => 7, :values => system_shared_versions.sort.collect{|s| ["#{s.project.name} - #{s.name}", s.id.to_s] } }
       end
       add_custom_fields_filters(IssueCustomField.find(:all, :conditions => {:is_filter => true, :is_for_all => true}))
-      # project filter
-      project_values = Project.all(:conditions => Project.visible_by(User.current), :order => 'lft').map do |p|
-        pre = (p.level > 0 ? ('--' * p.level + ' ') : '')
-        ["#{pre}#{p.name}",p.id.to_s]
-      end
-      @available_filters["project_id"] = { :type => :list, :order => 1, :values => project_values}
     end
     @available_filters
   end
@@ -268,9 +270,16 @@ class Query < ActiveRecord::Base
   end
 
   # Add multiple filters using +add_filter+
-  def add_filters(fields, operators, values)
-    fields.each do |field|
-      add_filter(field, operators[field], values[field])
+  def add_filters(fields, operators, values, from_values={}, to_values={})
+    if fields.is_a?(Array) && operators.is_a?(Hash) && values.is_a?(Hash)
+      fields.each do |field|
+        if range_operator?(operators[field])
+          add_filter(field, operators[field], [from_values[field]] + [to_values[field]])
+        else
+          add_filter(field, operators[field], values[field])
+        end
+        
+      end
     end
   end
   
@@ -393,15 +402,15 @@ class Query < ActiveRecord::Base
   
   # Returns true if the query is a grouped query
   def grouped?
-    !group_by.blank?
+    !group_by_column.nil?
   end
   
   def group_by_column
-    groupable_columns.detect {|c| c.name.to_s == group_by}
+    groupable_columns.detect {|c| c.groupable && c.name.to_s == group_by}
   end
   
   def group_by_statement
-    group_by_column.groupable
+    group_by_column.try(:groupable)
   end
   
   def project_statement
@@ -581,9 +590,19 @@ class Query < ActiveRecord::Base
     sql = ''
     case operator
     when "="
-      sql = "#{db_table}.#{db_field} IN (" + value.collect{|val| "'#{connection.quote_string(val)}'"}.join(",") + ")"
+      if value.present?
+        sql = "#{db_table}.#{db_field} IN (" + value.collect{|val| "'#{connection.quote_string(val)}'"}.join(",") + ")"
+      else
+        # empty set of allowed values produces no result
+        sql = "0=1"
+      end
     when "!"
-      sql = "(#{db_table}.#{db_field} IS NULL OR #{db_table}.#{db_field} NOT IN (" + value.collect{|val| "'#{connection.quote_string(val)}'"}.join(",") + "))"
+      if value.present?
+        sql = "(#{db_table}.#{db_field} IS NULL OR #{db_table}.#{db_field} NOT IN (" + value.collect{|val| "'#{connection.quote_string(val)}'"}.join(",") + "))"
+      else
+        # empty set of forbidden values allows all results
+        sql = "1=1"
+      end
     when "!*"
       sql = "#{db_table}.#{db_field} IS NULL"
       sql << " OR #{db_table}.#{db_field} = ''" if is_custom_filter

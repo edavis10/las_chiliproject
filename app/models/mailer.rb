@@ -15,6 +15,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+require 'ar_condition'
+
 class Mailer < ActionMailer::Base
   layout 'mailer'
   helper :application
@@ -38,7 +40,8 @@ class Mailer < ActionMailer::Base
   def issue_add(issue, recipient)
     redmine_headers 'Project' => issue.project.identifier,
                     'Issue-Id' => issue.id,
-                    'Issue-Author' => issue.author.login
+                    'Issue-Author' => issue.author.login,
+                    'Type' => "Issue"
     redmine_headers 'Issue-Assignee' => issue.assigned_to.login if issue.assigned_to
     message_id issue
     recipients [recipient]
@@ -57,7 +60,8 @@ class Mailer < ActionMailer::Base
     issue = journal.journalized.reload
     redmine_headers 'Project' => issue.project.identifier,
                     'Issue-Id' => issue.id,
-                    'Issue-Author' => issue.author.login
+                    'Issue-Author' => issue.author.login,
+                    'Type' => "Issue"
     redmine_headers 'Issue-Assignee' => issue.assigned_to.login if issue.assigned_to
     message_id journal
     references issue
@@ -75,6 +79,7 @@ class Mailer < ActionMailer::Base
   end
 
   def reminder(user, issues, days)
+    redmine_headers 'Type' => "Issue"
     set_language_if_valid user.language
     recipients user.mail
     subject l(:mail_subject_reminder, :count => issues.size, :days => days)
@@ -90,7 +95,8 @@ class Mailer < ActionMailer::Base
   #   document_added(document, 'test@example.com') => tmail object
   #   Mailer.deliver_document_added(document, 'test@example.com') => sends an email to the document's project recipients
   def document_added(document, recipient)
-    redmine_headers 'Project' => document.project.identifier
+    redmine_headers 'Project' => document.project.identifier,
+                    'Type' => "Document"
     recipients [recipient]
     subject "[#{document.project.name}] #{l(:label_document_new)}: #{document.title}"
     body :document => document,
@@ -119,7 +125,8 @@ class Mailer < ActionMailer::Base
       added_to = "#{l(:label_document)}: #{container.title}"
     end
     recipients [recipient]
-    redmine_headers 'Project' => container.project.identifier
+    redmine_headers 'Project' => container.project.identifier,
+                    'Type' => "Attachment"
     subject "[#{container.project.name}] #{l(:label_attachment_new)}"
     body :attachments => attachments,
          :added_to => added_to,
@@ -149,7 +156,8 @@ class Mailer < ActionMailer::Base
   #   Mailer.deliver_message_posted(message) => sends an email to the recipients
   def message_posted(message, recipient)
     redmine_headers 'Project' => message.project.identifier,
-                    'Topic-Id' => (message.parent_id || message.id)
+                    'Topic-Id' => (message.parent_id || message.id),
+                    'Type' => "Forum"
     message_id message
     references message.parent unless message.parent.nil?
     recipients [recipient]
@@ -166,12 +174,13 @@ class Mailer < ActionMailer::Base
   #   Mailer.deliver_wiki_content_added(wiki_content) => sends an email to the project's recipients
   def wiki_content_added(wiki_content, recipient)
     redmine_headers 'Project' => wiki_content.project.identifier,
-                    'Wiki-Page-Id' => wiki_content.page.id
+                    'Wiki-Page-Id' => wiki_content.page.id,
+                    'Type' => "Wiki"
     message_id wiki_content
     recipients [recipient]
     subject "[#{wiki_content.project.name}] #{l(:mail_subject_wiki_content_added, :page => wiki_content.page.pretty_title)}"
     body :wiki_content => wiki_content,
-         :wiki_content_url => url_for(:controller => 'wiki', :action => 'index', :id => wiki_content.project, :page => wiki_content.page.title)
+         :wiki_content_url => url_for(:controller => 'wiki', :action => 'show', :project_id => wiki_content.project, :id => wiki_content.page.title)
     render_multipart('wiki_content_added', body)
   end
   
@@ -182,13 +191,14 @@ class Mailer < ActionMailer::Base
   #   Mailer.deliver_wiki_content_updated(wiki_content) => sends an email to the project's recipients
   def wiki_content_updated(wiki_content, recipient)
     redmine_headers 'Project' => wiki_content.project.identifier,
-                    'Wiki-Page-Id' => wiki_content.page.id
+                    'Wiki-Page-Id' => wiki_content.page.id,
+                    'Type' => "Wiki"
     message_id wiki_content
     recipients [recipient]
     subject "[#{wiki_content.project.name}] #{l(:mail_subject_wiki_content_updated, :page => wiki_content.page.pretty_title)}"
     body :wiki_content => wiki_content,
-         :wiki_content_url => url_for(:controller => 'wiki', :action => 'index', :id => wiki_content.project, :page => wiki_content.page.title),
-         :wiki_diff_url => url_for(:controller => 'wiki', :action => 'diff', :id => wiki_content.project, :page => wiki_content.page.title, :version => wiki_content.version)
+         :wiki_content_url => url_for(:controller => 'wiki', :action => 'show', :project_id => wiki_content.project, :id => wiki_content.page.title),
+         :wiki_diff_url => url_for(:controller => 'wiki', :action => 'diff', :project_id => wiki_content.project, :id => wiki_content.page.title, :version => wiki_content.version)
     render_multipart('wiki_content_updated', body)
   end
 
@@ -198,6 +208,7 @@ class Mailer < ActionMailer::Base
   #   account_information(user, password) => tmail object
   #   Mailer.deliver_account_information(user, password) => sends account information to the user
   def account_information(user, password)
+    redmine_headers 'Type' => "Account"
     set_language_if_valid user.language
     recipients user.mail
     subject l(:mail_subject_register, Setting.app_title)
@@ -214,6 +225,7 @@ class Mailer < ActionMailer::Base
   #   Mailer.deliver_account_activation_request(user)=> sends an email to all active administrators
   def account_activation_request(user)
     # Send the email to all active administrators
+    redmine_headers 'Type' => "Account"
     recipients User.active.find(:all, :conditions => {:admin => true}).collect { |u| u.mail }.compact
     subject l(:mail_subject_account_activation_request, Setting.app_title)
     body :user => user,
@@ -227,6 +239,7 @@ class Mailer < ActionMailer::Base
   #   account_activated(user) => tmail object
   #   Mailer.deliver_account_activated(user) => sends an email to the registered user
   def account_activated(user)
+    redmine_headers 'Type' => "Account"
     set_language_if_valid user.language
     recipients user.mail
     subject l(:mail_subject_register, Setting.app_title)
@@ -236,6 +249,7 @@ class Mailer < ActionMailer::Base
   end
 
   def lost_password(token)
+    redmine_headers 'Type' => "Account"
     set_language_if_valid(token.user.language)
     recipients token.user.mail
     subject l(:mail_subject_lost_password, Setting.app_title)
@@ -245,6 +259,7 @@ class Mailer < ActionMailer::Base
   end
 
   def register(token)
+    redmine_headers 'Type' => "Account"
     set_language_if_valid(token.user.language)
     recipients token.user.mail
     subject l(:mail_subject_register, Setting.app_title)
@@ -292,9 +307,10 @@ class Mailer < ActionMailer::Base
   end
 
   def test(user)
+    redmine_headers 'Type' => "Test"
     set_language_if_valid(user.language)
     recipients user.mail
-    subject 'Redmine test'
+    subject 'ChiliProject test'
     body :url => url_for(:controller => 'welcome')
     render_multipart('test', body)
   end
@@ -324,7 +340,7 @@ class Mailer < ActionMailer::Base
       if raise_errors
         raise e
       elsif mylogger
-        mylogger.error "The following error occured while sending email notification: \"#{e.message}\". Check your configuration in config/email.yml."
+        mylogger.error "The following error occured while sending email notification: \"#{e.message}\". Check your configuration in config/configuration.yml."
       end
     ensure
       self.class.raise_delivery_errors = raise_errors
@@ -336,13 +352,16 @@ class Mailer < ActionMailer::Base
   # * :days     => how many days in the future to remind about (defaults to 7)
   # * :tracker  => id of tracker for filtering issues (defaults to all trackers)
   # * :project  => id or identifier of project to process (defaults to all projects)
+  # * :users    => array of user ids who should be reminded
   def self.reminders(options={})
     days = options[:days] || 7
     project = options[:project] ? Project.find(options[:project]) : nil
     tracker = options[:tracker] ? Tracker.find(options[:tracker]) : nil
+    user_ids = options[:users]
 
     s = ARCondition.new ["#{IssueStatus.table_name}.is_closed = ? AND #{Issue.table_name}.due_date <= ?", false, days.day.from_now.to_date]
     s << "#{Issue.table_name}.assigned_to_id IS NOT NULL"
+    s << ["#{Issue.table_name}.assigned_to_id IN (?)", user_ids] if user_ids.present?
     s << "#{Project.table_name}.status = #{Project::STATUS_ACTIVE}"
     s << "#{Issue.table_name}.project_id = #{project.id}" if project
     s << "#{Issue.table_name}.tracker_id = #{tracker.id}" if tracker
@@ -372,16 +391,16 @@ class Mailer < ActionMailer::Base
     from Setting.mail_from
     
     # Common headers
-    headers 'X-Mailer' => 'Redmine',
-            'X-Redmine-Host' => Setting.host_name,
-            'X-Redmine-Site' => Setting.app_title,
+    headers 'X-Mailer' => 'ChiliProject',
+            'X-ChiliProject-Host' => Setting.host_name,
+            'X-ChiliProject-Site' => Setting.app_title,
             'Precedence' => 'bulk',
             'Auto-Submitted' => 'auto-generated'
   end
 
-  # Appends a Redmine header field (name is prepended with 'X-Redmine-')
+  # Appends a Redmine header field (name is prepended with 'X-ChiliProject-')
   def redmine_headers(h)
-    h.each { |k,v| headers["X-Redmine-#{k}"] = v }
+    h.each { |k,v| headers["X-ChiliProject-#{k}"] = v }
   end
 
   # Overrides the create_mail method
@@ -428,9 +447,9 @@ class Mailer < ActionMailer::Base
     # id + timestamp should reduce the odds of a collision
     # as far as we don't send multiple emails for the same object
     timestamp = object.send(object.respond_to?(:created_on) ? :created_on : :updated_on) 
-    hash = "redmine.#{object.class.name.demodulize.underscore}-#{object.id}.#{timestamp.strftime("%Y%m%d%H%M%S")}"
+    hash = "chiliproject.#{object.class.name.demodulize.underscore}-#{object.id}.#{timestamp.strftime("%Y%m%d%H%M%S")}"
     host = Setting.mail_from.to_s.gsub(%r{^.*@}, '')
-    host = "#{::Socket.gethostname}.redmine" if host.empty?
+    host = "#{::Socket.gethostname}.chiliproject" if host.empty?
     "<#{hash}@#{host}>"
   end
   

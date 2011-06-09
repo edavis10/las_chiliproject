@@ -910,23 +910,48 @@ th:
   field_time_entries: Log time
   project_module_gantt: Gantt
   project_module_calendar: Calendar
-  label_user_mail_option_only_owner_or_creator: Only for things I am the owner or creator of
-  field_custom_ldap_filter: Custom LDAP filter
-  label_user_mail_option_only_owner: Only for things I am the owner of
-  field_member_of_group: Assignee's group
-  setting_default_notification_option: Default notification option
-  label_user_mail_option_only_my_events: Only for things I watch or I'm involved in
-  label_user_mail_option_only_assigned: Only for things I am assigned to
-  label_in_date_range: within period
-  field_assigned_to_role: Assignee's role
-  label_entered_by: (originally entered by {{who}}).
-  label_user_search: "Search for user:"
-  field_failover_host: Failover Host
-  setting_mail_handler_confirmation_on_failure: Send confirmation email on failed incoming email
-  setting_mail_handler_confirmation_on_success: Send confirmation email on successful incoming email
+  text_tip_issue_begin_day: issue beginning this day
   notice_not_authorized_archived_project: The project you're trying to access has been archived.
-  text_mail_handler_confirmation_successful: Your email has been successful added at the following url
-  label_mail_handler_confirmation: "Confirmation of email submission: {{subject}}"
+  label_cvs_module: Module
+  setting_commit_logtime_enabled: Enable time logging
+  field_member_of_group: Assignee's group
+  label_filesystem_path: Root directory
+  label_darcs_path: Root directory
+  field_visible: Visible
+  setting_mail_handler_confirmation_on_success: Send confirmation email on successful incoming email
+  setting_emails_header: Emails header
+  label_mail_handler_confirmation: "Confirmation of email submission: %{subject}"
+  field_failover_host: Failover Host
+  setting_default_notification_option: Default notification option
+  label_user_search: "Search for user:"
   label_mail_handler_errors_with_submission: "There were errors with your email submission:"
+  notice_gantt_chart_truncated: The chart was truncated because it exceeds the maximum number of items that can be displayed (%{max})
+  label_document_watchers: Watchers
+  field_text: Text field
+  text_time_logged_by_changeset: Applied in changeset %{value}.
+  button_edit_associated_wikipage: "Edit associated Wiki page: %{page_title}"
+  label_bazaar_path: Root directory
+  label_principal_search: "Search for user or group:"
+  setting_gantt_items_limit: Maximum number of items displayed on the gantt chart
+  label_in_date_range: within period
+  label_cvs_path: CVSROOT
+  label_user_mail_option_only_my_events: Only for things I watch or I'm involved in
+  setting_commit_logtime_activity_id: Activity for logged time
+  label_git_path: Path to .git directory
+  default_role_anonymous: Anonymous
+  text_powered_by: Powered by %{link}
+  setting_mail_handler_confirmation_on_failure: Send confirmation email on failed incoming email
+  field_custom_ldap_filter: Custom LDAP filter
+  text_tip_issue_begin_end_day: issue beginning and ending this day
+  text_tip_issue_end_day: issue ending this day
+  label_user_mail_option_only_assigned: Only for things I am assigned to
+  default_role_non_member: Non member
+  label_mail_handler_failure: "Failed email submission: %{subject}"
+  label_mercurial_path: Root directory
+  field_assigned_to_role: Assignee's role
+  label_user_mail_option_only_owner_or_creator: Only for things I am the owner or creator of
+  label_user_mail_option_only_owner: Only for things I am the owner of
   notice_not_authorized_action: You are not authorized to perform this action.
-  label_mail_handler_failure: "Failed email submission: {{subject}}"
+  text_mail_handler_confirmation_successful: Your email has been successful added at the following url
+  text_are_you_sure_with_children: Delete issue and all child issues?
+  label_entered_by: (originally entered by %{who}).

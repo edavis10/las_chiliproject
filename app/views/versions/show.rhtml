@@ -1,5 +1,6 @@
 <div class="contextual">
 <%= link_to_if_authorized l(:button_edit), {:controller => 'versions', :action => 'edit', :id => @version}, :class => 'icon icon-edit' %>
+<%= link_to_if_authorized(l(:button_edit_associated_wikipage, :page_title => @version.wiki_page_title), {:controller => 'wiki', :action => 'edit', :project_id => @version.project, :id => Wiki.titleize(@version.wiki_page_title)}, :class => 'icon icon-edit') unless @version.wiki_page_title.blank? || @version.project.wiki.nil? %>
 <%= call_hook(:view_versions_show_contextual, { :version => @version, :project => @project }) %>
 </div>
 
@@ -36,7 +37,7 @@
 <fieldset class="related-issues"><legend><%= l(:label_related_issues) %></legend>
 <ul>
 <% @issues.each do |issue| -%>
-    <li><%= link_to_issue(issue) %></li>
+    <li><%= link_to_issue(issue, :project => issue.project != @version.project) %></li>
 <% end -%>
 </ul>
 </fieldset>

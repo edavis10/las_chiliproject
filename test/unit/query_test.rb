@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-require File.dirname(__FILE__) + '/../test_helper'
+require File.expand_path('../../test_helper', __FILE__)
 
 class QueryTest < ActiveSupport::TestCase
   fixtures :projects, :enabled_modules, :users, :members, :member_roles, :roles, :trackers, :issue_statuses, :issue_categories, :enumerations, :issues, :watchers, :custom_fields, :custom_values, :versions, :queries
@@ -235,6 +235,22 @@ class QueryTest < ActiveSupport::TestCase
     q = Query.new
     assert q.groupable_columns.detect {|c| c.is_a? QueryCustomFieldColumn}
   end
+
+  def test_grouped_with_valid_column
+    q = Query.new(:group_by => 'status')
+    assert q.grouped?
+    assert_not_nil q.group_by_column
+    assert_equal :status, q.group_by_column.name
+    assert_not_nil q.group_by_statement
+    assert_equal 'status', q.group_by_statement
+  end
+  
+  def test_grouped_with_invalid_column
+    q = Query.new(:group_by => 'foo')
+    assert !q.grouped?
+    assert_nil q.group_by_column
+    assert_nil q.group_by_statement
+  end
   
   def test_default_sort
     q = Query.new
@@ -382,6 +398,12 @@ class QueryTest < ActiveSupport::TestCase
       assert users[:values].map{|u|u[1]}.include?("3")
     end
 
+    should "include visible projects in cross-project view" do
+      projects = @query.available_filters["project_id"]
+      assert_not_nil projects
+      assert projects[:values].map{|u|u[1]}.include?("1")
+    end
+
     context "'member_of_group' filter" do
       should "be present" do
         assert @query.available_filters.keys.include?("member_of_group")
@@ -397,10 +419,10 @@ class QueryTest < ActiveSupport::TestCase
         group2 = Group.generate!.reload
 
         expected_group_list = [
-                               [group1.name, group1.id],
-                               [group2.name, group2.id]
+                               [group1.name, group1.id.to_s],
+                               [group2.name, group2.id.to_s]
                               ]
-        assert_equal expected_group_list, @query.available_filters["member_of_group"][:values]
+        assert_equal expected_group_list.sort, @query.available_filters["member_of_group"][:values].sort
       end
 
     end
@@ -415,14 +437,14 @@ class QueryTest < ActiveSupport::TestCase
       end
       
       should "have a list of the Roles as values" do
-        assert @query.available_filters["assigned_to_role"][:values].include?(['Manager',1])
-        assert @query.available_filters["assigned_to_role"][:values].include?(['Developer',2])
-        assert @query.available_filters["assigned_to_role"][:values].include?(['Reporter',3])
+        assert @query.available_filters["assigned_to_role"][:values].include?(['Manager','1'])
+        assert @query.available_filters["assigned_to_role"][:values].include?(['Developer','2'])
+        assert @query.available_filters["assigned_to_role"][:values].include?(['Reporter','3'])
       end
 
       should "not include the built in Roles as values" do
-        assert ! @query.available_filters["assigned_to_role"][:values].include?(['Non member',4])
-        assert ! @query.available_filters["assigned_to_role"][:values].include?(['Anonymous',5])
+        assert ! @query.available_filters["assigned_to_role"][:values].include?(['Non member','4'])
+        assert ! @query.available_filters["assigned_to_role"][:values].include?(['Anonymous','5'])
       end
 
     end
@@ -445,6 +467,7 @@ class QueryTest < ActiveSupport::TestCase
         @group2 = Group.generate!.reload
         @group2.users << @user_in_group2
         
+        @empty_group = Group.generate!.reload
       end
       
       should "search assigned to for users in the group" do
@@ -462,7 +485,6 @@ class QueryTest < ActiveSupport::TestCase
         # Users not in a group
         assert_query_statement_includes @query, "#{Issue.table_name}.assigned_to_id IS NULL OR #{Issue.table_name}.assigned_to_id NOT IN ('#{@user_in_group.id}','#{@second_user_in_group.id}','#{@user_in_group2.id}')"
         assert_find_issues_with_query_is_successful @query
-
       end
 
       should "search assigned to any group member (all)" do
@@ -472,7 +494,22 @@ class QueryTest < ActiveSupport::TestCase
         # Only users in a group
         assert_query_statement_includes @query, "#{Issue.table_name}.assigned_to_id IN ('#{@user_in_group.id}','#{@second_user_in_group.id}','#{@user_in_group2.id}')"
         assert_find_issues_with_query_is_successful @query
-
+      end
+      
+      should "return no results on empty set" do
+        @query = Query.new(:name => '_')
+        @query.add_filter('member_of_group', '=', [@empty_group.id.to_s])
+        
+        assert_query_statement_includes @query, "(0=1)"
+        assert find_issues_with_query(@query).empty?
+      end
+      
+      should "return results on disallowed empty set" do
+        @query = Query.new(:name => '_')
+        @query.add_filter('member_of_group', '!', [@empty_group.id.to_s])
+        
+        assert_query_statement_includes @query, "(1=1)"
+        assert_find_issues_with_query_is_successful @query
       end
     end
 
@@ -485,6 +522,7 @@ class QueryTest < ActiveSupport::TestCase
         
         @manager_role = Role.generate!(:name => 'Manager')
         @developer_role = Role.generate!(:name => 'Developer')
+        @empty_role = Role.generate!(:name => 'Empty')
 
         @project = Project.generate!
         @manager = User.generate!
@@ -516,6 +554,22 @@ class QueryTest < ActiveSupport::TestCase
         @query.add_filter('assigned_to_role', '*', [''])
 
         assert_query_statement_includes @query, "#{Issue.table_name}.assigned_to_id IN ('#{@manager.id}','#{@developer.id}','#{@boss.id}')"
+        assert_find_issues_with_query_is_successful @query
+      end
+
+      should "return no results on empty set" do
+        @query = Query.new(:name => '_')
+        @query.add_filter('assigned_to_role', '=', [@empty_role.id.to_s])
+        
+        assert_query_statement_includes @query, "(0=1)"
+        assert find_issues_with_query(@query).empty?
+      end
+      
+      should "return results on disallowed empty set" do
+        @query = Query.new(:name => '_')
+        @query.add_filter('assigned_to_role', '!', [@empty_role.id.to_s])
+        
+        assert_query_statement_includes @query, "(1=1)"
         assert_find_issues_with_query_is_successful @query
       end
     end

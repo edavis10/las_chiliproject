@@ -15,17 +15,29 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-require File.dirname(__FILE__) + '/../../../../../test_helper'
+require File.expand_path('../../../../../../test_helper', __FILE__)
 
-class SubversionAdapterTest < ActiveSupport::TestCase
+begin
+  require 'mocha'
+
+  class SubversionAdapterTest < ActiveSupport::TestCase
   
-  if repository_configured?('subversion')
-    def test_client_version
-      v = Redmine::Scm::Adapters::SubversionAdapter.client_version
-      assert v.is_a?(Array)
+    if repository_configured?('subversion')
+      def setup
+      end
+
+      def test_client_version
+        v = Redmine::Scm::Adapters::SubversionAdapter.client_version
+        assert v.is_a?(Array)
+      end
+    else
+      puts "Subversion test repository NOT FOUND. Skipping unit tests !!!"
+      def test_fake; assert true end
     end
-  else
-    puts "Subversion test repository NOT FOUND. Skipping unit tests !!!"
-    def test_fake; assert true end
+  end
+
+rescue LoadError
+  class SubversionMochaFake < ActiveSupport::TestCase
+    def test_fake; assert(false, "Requires mocha to run those tests")  end
   end
 end

@@ -73,15 +73,12 @@ module SettingsHelper
   end
 
   # Renders a notification field for a Redmine::Notifiable option
-  def notification_field(notifiable, options)
-    notifiable_css = "parent-#{options[:parent]}" if options.key?(:parent)
+  def notification_field(notifiable)
     return content_tag(:label,
                        check_box_tag('settings[notified_events][]',
-                                     notifiable,
-                                     Setting.notified_events.include?(notifiable),
-                                     :onclick => options.delete(:onclick),
-                                     :class =>  notifiable_css) +
-                       l_or_humanize(notifiable, :prefix => 'label_'),
-                       :style => options.key?(:parent) ? "padding-left:20px" : '')
+                                     notifiable.name,
+                                     Setting.notified_events.include?(notifiable.name)) +
+                         l_or_humanize(notifiable.name, :prefix => 'label_'),
+                       :class => notifiable.parent.present? ? "parent" : '')
   end
 end

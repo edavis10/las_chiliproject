@@ -27,7 +27,7 @@ class TimeEntry < ActiveRecord::Base
 
   acts_as_customizable
   acts_as_event :title => Proc.new {|o| "#{l_hours(o.hours)} (#{(o.issue || o.project).event_title})"},
-                :url => Proc.new {|o| {:controller => 'timelog', :action => 'details', :project_id => o.project, :issue_id => o.issue}},
+                :url => Proc.new {|o| {:controller => 'timelog', :action => 'index', :project_id => o.project, :issue_id => o.issue}},
                 :author => :user,
                 :description => :comments
 
@@ -66,6 +66,9 @@ class TimeEntry < ActiveRecord::Base
   # these attributes make time aggregations easier
   def spent_on=(date)
     super
+    if spent_on.is_a?(Time)
+      self.spent_on = spent_on.to_date
+    end
     self.tyear = spent_on ? spent_on.year : nil
     self.tmonth = spent_on ? spent_on.month : nil
     self.tweek = spent_on ? Date.civil(spent_on.year, spent_on.month, spent_on.day).cweek : nil
@@ -80,5 +83,21 @@ class TimeEntry < ActiveRecord::Base
     with_scope(:find => { :conditions => Project.allowed_to_condition(usr, :view_time_entries) }) do
       yield
     end
+  end
+
+  def self.earilest_date_for_project(project=nil)
+    finder_conditions = ARCondition.new(Project.allowed_to_condition(User.current, :view_time_entries))
+    if project
+      finder_conditions << ["project_id IN (?)", project.hierarchy.collect(&:id)]
+    end
+    TimeEntry.minimum(:spent_on, :include => :project, :conditions => finder_conditions.conditions)
+  end
+
+  def self.latest_date_for_project(project=nil)
+    finder_conditions = ARCondition.new(Project.allowed_to_condition(User.current, :view_time_entries))
+    if project
+      finder_conditions << ["project_id IN (?)", project.hierarchy.collect(&:id)]
+    end
+    TimeEntry.maximum(:spent_on, :include => :project, :conditions => finder_conditions.conditions)
   end
 end

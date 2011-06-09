@@ -29,7 +29,16 @@ module IssuesHelper
       ancestors << issue unless issue.leaf?
     end
   end
-  
+
+  # Renders a HTML/CSS tooltip
+  #
+  # To use, a trigger div is needed.  This is a div with the class of "tooltip"
+  # that contains this method wrapped in a span with the class of "tip"
+  #
+  #    <div class="tooltip"><%= link_to_issue(issue) %>
+  #      <span class="tip"><%= render_issue_tooltip(issue) %></span>
+  #    </div>
+  #
   def render_issue_tooltip(issue)
     @cached_label_status ||= l(:field_status)
     @cached_label_start_date ||= l(:field_start_date)
@@ -184,6 +193,20 @@ module IssuesHelper
     end
   end
   
+  # Renders issue children recursively
+  def render_api_issue_children(issue, api)
+    return if issue.leaf?
+    api.array :children do
+      issue.children.each do |child|
+        api.issue(:id => child.id) do
+          api.tracker(:id => child.tracker_id, :name => child.tracker.name) unless child.tracker.nil?
+          api.subject child.subject
+          render_api_issue_children(child, api)
+        end
+      end
+    end
+  end
+  
   def issues_to_csv(issues, project = nil)
     ic = Iconv.new(l(:general_csv_encoding), 'UTF-8')    
     decimal_separator = l(:general_csv_decimal_separator)
@@ -240,31 +263,5 @@ module IssuesHelper
       end
     end
     export
-  end
-
-  def gantt_zoom_link(gantt, in_or_out)
-    img_attributes = {:style => 'height:1.4em; width:1.4em; margin-left: 3px;'} # em for accessibility
-
-    case in_or_out
-    when :in
-      if gantt.zoom < 4
-        link_to_remote(l(:text_zoom_in) + image_tag('zoom_in.png', img_attributes.merge(:alt => l(:text_zoom_in))),
-                       {:url => gantt.params.merge(:zoom => (gantt.zoom+1)), :method => :get, :update => 'content'},
-                       {:href => url_for(gantt.params.merge(:zoom => (gantt.zoom+1)))})
-      else
-        l(:text_zoom_in) +
-          image_tag('zoom_in_g.png', img_attributes.merge(:alt => l(:text_zoom_in)))
-      end
-      
-    when :out
-      if gantt.zoom > 1
-        link_to_remote(l(:text_zoom_out) + image_tag('zoom_out.png', img_attributes.merge(:alt => l(:text_zoom_out))),
-                       {:url => gantt.params.merge(:zoom => (gantt.zoom-1)), :method => :get, :update => 'content'},
-                       {:href => url_for(gantt.params.merge(:zoom => (gantt.zoom-1)))})
-      else
-        l(:text_zoom_out) +
-          image_tag('zoom_out_g.png', img_attributes.merge(:alt => l(:text_zoom_out)))
-      end
-    end
   end
 end

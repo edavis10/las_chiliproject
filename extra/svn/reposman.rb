@@ -7,7 +7,7 @@
 # == Usage
 #
 #    reposman [OPTIONS...] -s [DIR] -r [HOST]
-#     
+#
 #  Examples:
 #    reposman --svn-dir=/var/svn --redmine-host=redmine.example.net --scm subversion
 #    reposman -s /var/git -r redmine.example.net -u http://svn.example.net --scm git
@@ -57,7 +57,7 @@
 #   -q, --quiet               no log
 #
 # == References
-# 
+#
 # You can find more information on the redmine's wiki : http://www.redmine.org/wiki/redmine/HowTos
 
 
@@ -65,6 +65,10 @@ require 'getoptlong'
 require 'rdoc/usage'
 require 'find'
 require 'etc'
+
+# working around deprecation in RubyGems 1.6
+# needed for rails <2.3.9 only, don't merge to unstable!
+require 'thread'
 
 Version = "1.3"
 SUPPORTED_SCM = %w( Subversion Darcs Mercurial Bazaar Git Filesystem )
@@ -180,7 +184,9 @@ rescue LoadError
   log("This script requires activeresource.\nRun 'gem install activeresource' to install it.", :exit => true)
 end
 
-class Project < ActiveResource::Base; end
+class Project < ActiveResource::Base
+  self.headers["User-agent"] = "Redmine repository manager/#{Version}"
+end
 
 log("querying Redmine for projects...", :level => 1);
 
@@ -223,9 +229,9 @@ end
 def owner_name(file)
   mswin? ?
     $svn_owner :
-    Etc.getpwuid( File.stat(file).uid ).name  
+    Etc.getpwuid( File.stat(file).uid ).name
 end
-  
+
 def mswin?
   (RUBY_PLATFORM =~ /(:?mswin|mingw)/) || (RUBY_PLATFORM == 'java' && (ENV['OS'] || ENV['os']) =~ /windows/i)
 end
@@ -236,7 +242,7 @@ projects.each do |project|
   if project.identifier.empty?
     log("\tno identifier for project #{project.name}")
     next
-  elsif not project.identifier.match(/^[a-z0-9\-]+$/)
+  elsif not project.identifier.match(/^[a-z0-9\-_]+$/)
     log("\tinvalid identifier for project #{project.name} : #{project.identifier}");
     next;
   end
@@ -307,4 +313,3 @@ projects.each do |project|
   end
 
 end
-  

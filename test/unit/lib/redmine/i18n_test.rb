@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-require File.dirname(__FILE__) + '/../../../test_helper'
+require File.expand_path('../../../../test_helper', __FILE__)
 
 class Redmine::I18nTest < ActiveSupport::TestCase
   include Redmine::I18n
@@ -108,5 +108,19 @@ class Redmine::I18nTest < ActiveSupport::TestCase
                'zh-ZZ' => nil }
     
     to_test.each {|lang, expected| assert_equal expected, find_language(lang)}
+  end
+  
+  def test_fallback
+    ::I18n.backend.store_translations(:en, {:untranslated => "Untranslated string"})
+    ::I18n.locale = 'en'
+    assert_equal "Untranslated string", l(:untranslated)
+    ::I18n.locale = 'fr'
+    assert_equal "Untranslated string", l(:untranslated)
+    
+    ::I18n.backend.store_translations(:fr, {:untranslated => "Pas de traduction"})
+    ::I18n.locale = 'en'
+    assert_equal "Untranslated string", l(:untranslated)
+    ::I18n.locale = 'fr'
+    assert_equal "Pas de traduction", l(:untranslated)
   end
 end

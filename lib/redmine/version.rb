@@ -3,15 +3,10 @@ require 'rexml/document'
 module Redmine
   module VERSION #:nodoc:
     MAJOR = 1
-    MINOR = 0
-    TINY  = 1
+    MINOR = 4
+    PATCH = 0 
+    TINY  = PATCH # Redmine compat
     
-    # Branch values:
-    # * official release: nil
-    # * stable branch:    stable
-    # * trunk:            devel
-    BRANCH = 'devel'
-
     def self.revision
       revision = nil
       entries_path = "#{RAILS_ROOT}/.svn/entries"
@@ -34,10 +29,13 @@ module Redmine
     end
 
     REVISION = self.revision
-    ARRAY = [MAJOR, MINOR, TINY, BRANCH, REVISION].compact
+    ARRAY = [MAJOR, MINOR, PATCH, REVISION].compact
     STRING = ARRAY.join('.')
     
     def self.to_a; ARRAY end
     def self.to_s; STRING end    
+    def self.to_semver
+      [MAJOR, MINOR, PATCH].join('.')
+    end
   end
 end

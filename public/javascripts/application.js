@@ -63,7 +63,6 @@ function addFileField() {
     dLabel.addClassName('inline');
     // Pulls the languge value used for Optional Description
     dLabel.update($('attachment_description_label_content').innerHTML)
-    
     p = document.getElementById("attachments_fields");
     p.appendChild(document.createElement("br"));
     p.appendChild(f);
@@ -211,13 +210,45 @@ function observeParentIssueField(url) {
   new Ajax.Autocompleter('issue_parent_issue_id',
                          'parent_issue_candidates',
                          url,
-                         { minChars: 3,
+                         { minChars: 1,
                            frequency: 0.5,
                            paramName: 'q',
                            updateElement: function(value) {
                              document.getElementById('issue_parent_issue_id').value = value.id;
                            }});
 }
+
+function observeRelatedIssueField(url) {
+  new Ajax.Autocompleter('relation_issue_to_id',
+                         'related_issue_candidates',
+                         url,
+                         { minChars: 1,
+                           frequency: 0.5,
+                           paramName: 'q',
+                           updateElement: function(value) {
+                             document.getElementById('relation_issue_to_id').value = value.id;
+                           },
+                           parameters: 'scope=all'
+                           });
+}
+
+function setVisible(id, visible) {
+  var el = $(id);
+  if (el) {if (visible) {el.show();} else {el.hide();}}
+}
+
+function observeProjectModules() {
+  var f = function() {
+    /* Hides trackers and issues custom fields on the new project form when issue_tracking module is disabled */
+    var c = ($('project_enabled_module_names_issue_tracking').checked == true);
+    setVisible('project_trackers', c);
+    setVisible('project_issue_custom_fields', c);
+  };
+  
+  Event.observe(window, 'load', f);
+  Event.observe('project_enabled_module_names_issue_tracking', 'change', f);
+}
+
 
 /* shows and hides ajax indicator */
 Ajax.Responders.register({

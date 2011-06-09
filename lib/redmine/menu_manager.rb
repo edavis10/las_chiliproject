@@ -23,12 +23,13 @@ module TreeNodePatch
     base.class_eval do
       attr_reader :last_items_count
       
-      alias :old_initilize :initialize
-      def initialize(name, content = nil)
-        old_initilize(name, content)
+      def initialize_with_redmine(name, content = nil)
+        extend InstanceMethods
         @last_items_count = 0
-        extend(InstanceMethods)
+
+        initialize_without_redmine(name, content)
       end
+      alias_method_chain :initialize, :redmine
     end
   end
   
@@ -99,7 +100,9 @@ module TreeNodePatch
     end
   end
 end
-Tree::TreeNode.send(:include, TreeNodePatch)
+unless Tree::TreeNode.included_modules.include?(TreeNodePatch)
+  Tree::TreeNode.send(:include, TreeNodePatch)
+end
 
 module Redmine
   module MenuManager
@@ -192,13 +195,13 @@ module Redmine
       def render_menu_node_with_children(node, project=nil)
         caption, url, selected = extract_node_details(node, project)
 
-        html = returning [] do |html|
+        html = [].tap do |html|
           html << '<li>'
           # Parent
           html << render_single_menu_node(node, caption, url, selected)
 
           # Standard children
-          standard_children_list = returning "" do |child_html|
+          standard_children_list = "".tap do |child_html|
             node.children.each do |child|
               child_html << render_menu_node(child, project)
             end
@@ -219,7 +222,7 @@ module Redmine
       def render_unattached_children_menu(node, project)
         return nil unless node.child_menus
 
-        returning "" do |child_html|
+        "".tap do |child_html|
           unattached_children = node.child_menus.call(project)
           # Tree nodes support #each so we need to do object detection
           if unattached_children.is_a? Array
