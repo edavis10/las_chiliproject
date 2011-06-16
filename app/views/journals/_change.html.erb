@@ -1,17 +1,3 @@
-  <div id="change-<%= journal.id %>" class="<%= journal.css_classes %>">
-    <h4><div class="journal-link"><%= link_to "##{journal.indice}", :anchor => "note-#{journal.indice}" %></div>
-    <%= avatar(journal.user, :size => "24") %>
-    <%= content_tag('a', '', :name => "note-#{journal.indice}")%>
-    <%= authoring journal.created_on, journal.user, :label => :label_updated_time_by %>
-    <%= l(:label_entered_by, :who => link_to_user(journal.entered_by)) unless journal.entered_by_author? %></h4>
-    
-    <% if journal.details.any? %>
-    <ul class="details">
-    <% for detail in journal.details %>
-       <li><%= show_detail(detail) %></li>
-    <% end %>
-    </ul>
-    <% end %>
-    <%= render_notes(journal.issue, journal, :reply_links => reply_links, :indice => journal.indice) unless journal.notes.blank? %>
-  </div>
+  <%= render_journal issue, journal, :edit_permission => :edit_issue_notes,
+      :edit_own_permission => :edit_own_issue_notes %>
   <%= call_hook(:view_issues_history_journal_bottom, { :journal => journal }) %>

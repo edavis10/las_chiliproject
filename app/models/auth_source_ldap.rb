@@ -1,19 +1,15 @@
-# redMine - project management software
-# Copyright (C) 2006  Jean-Philippe Lang
+#-- copyright
+# ChiliProject is a project management system.
+#
+# Copyright (C) 2010-2011 the ChiliProject Team
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-# 
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+# See doc/COPYRIGHT.rdoc for more details.
+#++
 
 require 'net/ldap'
 require 'iconv'
@@ -24,11 +20,11 @@ require 'timeout'
 
 class AuthSourceLdap < AuthSource 
   validates_presence_of :host, :port, :attr_login
-  validates_length_of :name, :host, :account_password, :maximum => 60, :allow_nil => true
-  validates_length_of :account, :base_dn, :maximum => 255, :allow_nil => true
+  validates_length_of :name, :host, :maximum => 60, :allow_nil => true
+  validates_length_of :account, :account_password, :base_dn, :maximum => 255, :allow_nil => true
   validates_length_of :attr_login, :attr_firstname, :attr_lastname, :attr_mail, :maximum => 30, :allow_nil => true
   validates_numericality_of :port, :only_integer => true
-  
+
   before_validation :strip_ldap_attributes
 
   serialize :custom_attributes
@@ -38,7 +34,7 @@ class AuthSourceLdap < AuthSource
     self.custom_attributes = {} if self.custom_attributes.nil?
     @failover = false
   end
-  
+
   def authenticate(login, password)
     return nil if login.blank? || password.blank?
 
@@ -74,7 +70,7 @@ class AuthSourceLdap < AuthSource
       raise "LdapError: " + text
     end
   end
- 
+
   def auth_method_name
     "LDAP"
   end
@@ -117,13 +113,13 @@ class AuthSourceLdap < AuthSource
   end
   
   private
-  
+
   def strip_ldap_attributes
     [:attr_login, :attr_firstname, :attr_lastname, :attr_mail].each do |attr|
       write_attribute(attr, read_attribute(attr).strip) unless read_attribute(attr).nil?
     end
   end
-  
+
   def initialize_ldap_con(ldap_user, ldap_password)
     options = { :host => current_host,
                 :port => self.port,
