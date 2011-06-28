@@ -266,8 +266,12 @@ private
     @time_entry.attributes = params[:time_entry]
 
     @notes = params[:notes] || (params[:issue].present? ? params[:issue][:notes] : nil)
-    @issue.init_journal(User.current, @notes)
-    @issue.current_journal.user_login = params[:user_login] if params[:user_login].present?
+    # TODO: refactor and merge into Journal#user_login=
+    if params[:user_login].present? && User.current.allowed_to?(:edit_issue_notes_author, @project)
+      @issue.init_journal((User.find_by_login(params[:user_login]) || User.current), @notes)
+    else
+      @issue.init_journal(User.current, @notes)
+    end
     @issue.safe_attributes = params[:issue]
     @journal = @issue.current_journal
   end
