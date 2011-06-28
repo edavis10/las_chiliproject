@@ -22,6 +22,9 @@ class MailerTest < ActiveSupport::TestCase
     Setting.host_name = 'mydomain.foo'
     Setting.protocol = 'http'
     Setting.plain_text_mail = '0'
+    Setting.bcc_recipients = '0'
+    user = User.find_by_mail('jsmith@somenet.foo')
+    set_no_self_notify(user, false)
   end
 
   def test_generated_links_in_emails
@@ -410,4 +413,13 @@ class MailerTest < ActiveSupport::TestCase
 
   end
 
+  private
+
+  def set_no_self_notify(user, notify)
+    pref = user.pref
+    pref[:no_self_notified] = notify
+    assert pref.save
+    User.current = user.reload
+  end
+  
 end

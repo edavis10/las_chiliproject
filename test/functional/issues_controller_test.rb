@@ -1063,8 +1063,8 @@ class IssuesControllerTest < ActionController::TestCase
     assert_equal 3, issue.author_id
     journal = issue.journals.last
     assert_equal 1, journal.details.size
-    assert_equal 'author_id', journal.details.first.prop_key
-    assert_equal '3', journal.details.first.value
+    assert_equal 'author_id', journal.details.first.first
+    assert_equal [2,3], journal.details.first.last # [from, to]
 
   end
 

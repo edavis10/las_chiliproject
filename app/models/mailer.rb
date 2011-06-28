@@ -290,7 +290,7 @@ class Mailer < ActionMailer::Base
     when object.class == Issue
       project = object.project.name
       url = url_for(:controller => 'issues', :action => 'show', :id => object.id)
-    when object.class == Journal
+    when object.class == IssueJournal # is_a? would catch Journal subclasses
       project = object.project.name
       url = url_for(:controller => 'issues', :action => 'show', :id => object.issue.id)
     when object.class == Message

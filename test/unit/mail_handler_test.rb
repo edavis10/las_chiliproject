@@ -562,9 +562,8 @@ class MailHandlerTest < ActiveSupport::TestCase
       ActionMailer::Base.deliveries.clear
       m = submit_email('message_reply.eml')
 
-      assert_equal 4, ActionMailer::Base.deliveries.size
-      mail = ActionMailer::Base.deliveries.last
-      assert_not_nil mail
+      mail = ActionMailer::Base.deliveries.find {|m| m.subject.match(/confirmation/i) }
+      assert_not_nil mail, "Confirmation email misssing"
       assert mail.subject.include?('[eCookbook]'), "Project name missing"
       assert mail.subject.include?('Confirmation of email submission: Reply via email'), "Main subject missing"
       assert mail.body.include?("/boards/1/topics/1"), "Link to message missing"
