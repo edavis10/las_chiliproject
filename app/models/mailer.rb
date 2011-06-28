@@ -178,7 +178,7 @@ class Mailer < ActionMailer::Base
     recipients [recipient]
     subject "[#{message.board.project.name} - #{message.board.name} - msg#{message.root.id}] #{message.subject}"
     body :message => message,
-         :message_url => url_for(message.last_journal.event_url)
+         :message_url => url_for({ :controller => 'messages', :action => 'show', :board_id => message.board, :id => message.root, :r => message, :anchor => "message-#{message.id}" })
     render_multipart('message_posted', body)
   end
 
