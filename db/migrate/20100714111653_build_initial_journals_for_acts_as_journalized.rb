@@ -5,11 +5,19 @@ class BuildInitialJournalsForActsAsJournalized < ActiveRecord::Migration
       Object.const_set("JournalDetails", Class.new(ActiveRecord::Base))
     end
 
+    # Reset class and subclasses, otherwise they will try to save using older attributes
+    Journal.reset_column_information
+    Journal.send(:subclasses).each do |klass|
+      klass.reset_column_information if klass.respond_to?(:reset_column_information)
+    end
+
     providers = Redmine::Activity.providers.collect {|k, v| v.collect(&:constantize) }.flatten.compact.uniq
     providers.each do |p|
       next unless p.table_exists? # Objects not in the DB yet need creation journal entries
 
       say_with_time("Building initial journals for #{p.class_name}") do
+
+        activity_type = p.activity_provider_options.keys.first
 
         p.find(:all).each do |o|
           # Create initial journals
@@ -30,6 +38,7 @@ class BuildInitialJournalsForActsAsJournalized < ActiveRecord::Migration
           end
           new_journal.changes = creation_changes
           new_journal.version = 1
+          new_journal.activity_type = activity_type
           
           if o.respond_to?(:author)
             new_journal.user = o.author
@@ -46,8 +55,12 @@ class BuildInitialJournalsForActsAsJournalized < ActiveRecord::Migration
               new_journal.update_attribute(:created_at, o.created_on)
             end
           else
-            puts "ERROR: errors creating the initial journal for #{o.class.to_s}##{o.id.to_s}:"
-            puts "  #{new_journal.errors.full_messages.inspect}"
+            if new_journal.errors.count == 1 && new_journal.errors.first[0] == "version"
+              # Skip, only error was from creating the initial journal for a record that already had one.
+            else
+              puts "ERROR: errors creating the initial journal for #{o.class.to_s}##{o.id.to_s}:"
+              puts "  #{new_journal.errors.full_messages.inspect}"
+            end
           end
         end
         

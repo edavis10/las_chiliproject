@@ -5,16 +5,17 @@ class UpdateJournalsForActsAsJournalized < ActiveRecord::Migration
       Object.const_set("JournalDetails", Class.new(ActiveRecord::Base))
     end
 
-    Journal.all.group_by(&:journaled_id).each_pair do |id, journals|
-      journals.sort_by(&:created_at).each_with_index do |j, idx|
-        # Recast the basic Journal into it's STI journalized class so callbacks work (#467)
-        klass_name = "#{j.journalized_type}Journal"
-        j = j.becomes(klass_name.constantize)
-        j.type = klass_name
-        j.version = idx + 2 # initial journal should be 1
-        # FIXME: Find some way to choose the right activity here
-        j.activity_type = j.journalized_type.constantize.activity_provider_options.keys.first
-        j.save(false)
+    say_with_time("Updating existing Journals...") do
+      Journal.all.group_by(&:journaled_id).each_pair do |id, journals|
+        journals.sort_by(&:created_at).each_with_index do |j, idx|
+          # Recast the basic Journal into it's STI journalized class so callbacks work (#467)
+          klass_name = "#{j.journalized_type}Journal"
+          j = j.becomes(klass_name.constantize)
+          j.type = klass_name
+          j.version = idx + 2 # initial journal should be 1
+          j.activity_type = j.journalized_type.constantize.activity_provider_options.keys.first
+          j.save(false)
+        end
       end
     end
 
