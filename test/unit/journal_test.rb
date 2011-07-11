@@ -13,7 +13,7 @@
 require File.expand_path('../../test_helper', __FILE__)
 
 class JournalTest < ActiveSupport::TestCase
-  fixtures :issues, :issue_statuses, :journals
+  fixtures :issues, :issue_statuses, :journals, :enumerations
 
   should_belong_to :entered_by
 
@@ -88,6 +88,7 @@ class JournalTest < ActiveSupport::TestCase
     @project = Project.generate!
     @issue = Issue.generate_for_project!(@project).reload
     start = @issue.updated_on
+    sleep(1) # TODO: massive hack to make sure the timestamps are different. switch to timecop later
 
     assert_difference("Journal.count") do
       @issue.init_journal(@user, "A note")
@@ -95,5 +96,12 @@ class JournalTest < ActiveSupport::TestCase
     end
 
     assert_not_equal start, @issue.reload.updated_on
+  end
+
+  test "accessing #journaled on a Journal should not error (parent class)" do
+    journal = Journal.new
+    assert_nothing_raised do
+      assert_equal nil, journal.journaled
+    end
   end
 end

@@ -1,3 +1,16 @@
+#-- copyright
+# ChiliProject is a project management system.
+#
+# Copyright (C) 2010-2011 the ChiliProject Team
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# See doc/COPYRIGHT.rdoc for more details.
+#++
+
 class BuildInitialJournalsForActsAsJournalized < ActiveRecord::Migration
   def self.up
     # This is provided here for migrating up after the JournalDetails has been removed
@@ -45,7 +58,11 @@ class BuildInitialJournalsForActsAsJournalized < ActiveRecord::Migration
           elsif o.respond_to?(:user)
             new_journal.user = o.user
           end
-          if new_journal.save
+          # Using rescue and save! here because either the Journal or the
+          # touched record could fail. This will catch either error and continue
+          begin
+            new_journal.save!
+            
             new_journal.reload
           
             # Backdate journal
@@ -54,12 +71,12 @@ class BuildInitialJournalsForActsAsJournalized < ActiveRecord::Migration
             elsif o.respond_to?(:created_on)
               new_journal.update_attribute(:created_at, o.created_on)
             end
-          else
+          rescue ActiveRecord::RecordInvalid => ex
             if new_journal.errors.count == 1 && new_journal.errors.first[0] == "version"
               # Skip, only error was from creating the initial journal for a record that already had one.
             else
               puts "ERROR: errors creating the initial journal for #{o.class.to_s}##{o.id.to_s}:"
-              puts "  #{new_journal.errors.full_messages.inspect}"
+              puts "  #{ex.message}"
             end
           end
         end
