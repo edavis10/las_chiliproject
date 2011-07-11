@@ -121,7 +121,8 @@ module Redmine::Acts::Journalized
           attributes = { :journaled_id => self.id, :activity_type => activity_type, 
             :changes => journal_changes, :version => last_version + 1,
             :notes => journal_notes, :user_id => (journal_user.try(:id) || User.current.try(:id)),
-            :entered_by_id => (User.current.try(:id)) }
+            :entered_by_id => (User.current.try(:id))
+          }.merge(extra_journal_attributes || {})
         end
     end
   end
