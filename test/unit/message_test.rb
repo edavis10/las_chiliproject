@@ -141,7 +141,7 @@ class MessageTest < ActiveSupport::TestCase
   end
 
   test "email notifications for creating a message" do
-    assert_difference("ActionMailer::Base.deliveries.count") do
+    assert_difference("ActionMailer::Base.deliveries.count",3) do
       message = Message.new(:board => @board, :subject => 'Test message', :content => 'Test message content', :author => @user)
       assert message.save
     end
