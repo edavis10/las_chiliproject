@@ -89,6 +89,10 @@ class Project < ActiveRecord::Base
     }
   }
 
+  def to_liquid
+    ProjectDrop.new(self)
+  end
+
   def initialize(attributes = nil)
     super
 
@@ -137,6 +141,11 @@ class Project < ActiveRecord::Base
     end
   end
 
+  # Is the project visible to the current user
+  def visible?
+    User.current.allowed_to?(:view_project, self)
+  end
+  
   def self.allowed_to_condition(user, permission, options={})
     base_statement = "#{Project.table_name}.status=#{Project::STATUS_ACTIVE}"
     if perm = Redmine::AccessControl.permission(permission)
