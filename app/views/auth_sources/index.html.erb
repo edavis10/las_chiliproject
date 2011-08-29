@@ -12,6 +12,7 @@
 	  <th><%=l(:field_host)%></th>
 	  <th><%=l(:label_user_plural)%></th>
 	  <th><%=l(:label_group_plural)%></th>
+    <th></th>
 	  <th></th>
   </tr></thead>
   <tbody>
@@ -26,6 +27,7 @@
       <%= link_to(h(group), edit_group_path(group)) %>
       <% end %>
     </td>
+    <td align="center"><%= reorder_links('auth_source', {:action => 'update', :id => source}) %></td>
     <td class="buttons">
     	<%= link_to l(:button_test), :action => 'test_connection', :id => source %>
     	<%= link_to l(:button_delete), { :action => 'destroy', :id => source },

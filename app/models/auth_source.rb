@@ -14,6 +14,9 @@
 class AuthSource < ActiveRecord::Base
   include Redmine::Ciphering
 
+  default_scope :order => "#{AuthSource.table_name}.position ASC"
+  acts_as_list :scope => 'type = \'#{type}\''
+  
   has_many :users
   has_and_belongs_to_many :groups
   

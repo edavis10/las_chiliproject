@@ -11,6 +11,15 @@
 # See doc/COPYRIGHT.rdoc for more details.
 #++
 
-class AuthSource < ActiveRecord::Base
-  generator_for :name, :start => 'Auth0'
+class AddAuthSourcePosition < ActiveRecord::Migration
+  def self.up
+    add_column :auth_sources, :position, :integer, :default => 1
+    add_index :auth_sources, :position
+
+    AuthSource.all.each_with_index {|auth, i| auth.update_attribute(:position, i+1)}
+  end
+
+  def self.down
+    remove_column :auth_sources, :position
+  end
 end

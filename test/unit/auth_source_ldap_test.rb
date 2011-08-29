@@ -32,6 +32,17 @@ class AuthSourceLdapTest < ActiveSupport::TestCase
 
   should_have_and_belong_to_many :groups
 
+  should "be ordered by position by default" do
+    default_attributes = {:host => 'example.local', :port => 389, :attr_login => 'Login'}
+    @a1 = AuthSourceLdap.find(1)
+    @a2 = AuthSourceLdap.generate!({:name => 'last'}.merge(default_attributes))
+    @a3 = AuthSourceLdap.generate!({:name => 'second'}.merge(default_attributes))
+    assert (@a2.move_to_bottom && @a2.save)
+    
+    assert_equal [@a1, @a3, @a2], AuthSource.all
+    
+  end
+  
   if ldap_configured?
     context '#authenticate' do
       setup do
